@@ -1,0 +1,50 @@
+{
+  "violation_0": {
+    "source_image": "006410_jpg.rf.bc6eb1c50dddd7b24da72dc53c34714a.jpg",
+    "annotated_image": "violation_0.jpg",
+    "detections": [
+      "head",
+      "head",
+      "head",
+      "head",
+      "head"
+    ],
+    "confidences": [
+      0.908,
+      0.898,
+      0.888,
+      0.873,
+      0.66
+    ],
+    "has_violation": true,
+    "person_count": 6,
+    "person_confidences": [
+      0.948,
+      0.943,
+      0.942,
+      0.938,
+      0.934,
+      0.653
+    ]
+  },
+  "compliant_0": {
+    "source_image": "006746_jpg.rf.ab614f64693ad790cbd985973e95c9f9.jpg",
+    "annotated_image": "compliant_0.jpg",
+    "detections": [
+      "helmet",
+      "helmet",
+      "helmet"
+    ],
+    "confidences": [
+      0.889,
+      0.862,
+      0.64
+    ],
+    "has_violation": false,
+    "person_count": 2,
+    "person_confidences": [
+      0.948,
+      0.944
+    ]
+  }
+}

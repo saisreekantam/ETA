@@ -1,0 +1,252 @@
+DGMS (Tech.) Circular No. 05 of 2020, Dhanbad, dated 24.02.2020
+Government of India, Ministry of Labour & Employment, Directorate General of Mines Safety
+To: All Owners, Agent, and Managers of Oil/Gas Mines.
+Subject: Safe Conduct of Drilling and Production operations in Oil & Gas Mines.
+
+Recently, there has been a spate of several fatal/serious accidents in oil/gas mines/installations,
+caused mainly due to sudden ignition/fire of surcharged HC gas cloud in the area. While the enquiry
+into these accidents revealed several shortcomings as the root cause, there still appeared many
+areas for enhancing work-procedures to completely avoid such accidents.
+
+Accordingly, the matter was discussed with various senior representatives from various oil/gas mines,
+OISD in addition to officers from DGMS, for evaluating risk factors associated with such operations in
+oil & gas mine(s) by on-site examination and study of various procedures in vogue, measures & type of
+safety features/equipments in use during various processes of production & drilling operations.
+Subsequent to holding detailed deliberations and discussions with various stake holders, the following
+guidelines are framed for ensuring safe conduct of drilling and production operations in oil/gas mines.
+
+A.1 - General:-
+
+1. In every mine, personal Supervision of the mine or part of the mine shall be exercised by the
+Manager at least once in every week to see that safety in every respect is ensured. He shall also
+ensure to carry out at least one inspection of complete installation at every new location. Of these
+inspections, one at least in every fortnight shall be made during the night shift.
+
+2. Every company shall have defined HSE Policy for the hiring of services. The technical
+qualifications as well as competency of the persons to be employed by the hiring agencies shall be
+evaluated before deployment.
+
+3. The qualifying criteria based on HSE policy or standards/guidelines of the company for hiring of
+services and/or equipment/Rig, etc. shall be framed by the Owner/Agent/Manager before awarding the
+Contract.
+
+4. Qualification and competency of all contractual persons employed or to be employed in the mine
+shall be evaluated by the board constituted by the management (i.e. owner/Agent/Manager) of the mine,
+who shall be persons who are not connected with imparting of training, provided that the training
+officer may be co-opted in the board as observer.
+
+5. In case of well-defined sequential procedures involving multiple operating groups at any given
+work site, a system of obtaining electronic permits/clearances for the sequential operations, shall be
+installed and also implemented to effectively preventing bypassing the sequence, thereby avoiding
+cropping-up of hazards as a consequence.
+
+6. It shall be ensured that persons deployed within 30 m of any tank, separator, oil well, oil/gas
+manifold in the installation including Zone-2 hazardous area(s), do not carry/possess mobile phones
+and electronic device, cigar, cigarette, biri/other smoking apparatus or any match or kind which is
+capable of producing a light, flame or spark, except intrinsically safe apparatus or such device which
+are housed in a flame proof enclosure.
+
+7. It shall be ensured that the entire process area and/or drilling area is kept under intrinsically
+safe effective CCTV surveillance to monitor all operations closely. Recording of all such surveillance
+shall be stored for a period of at least 30 days. Before deleting the data, it shall be examined for
+unsafe act/practice. If any abnormality is observed, the same shall be rectified and recorded in a
+bound paged book kept for the purpose.
+
+8. Record of every inspection, testing, examination of any apparatus, equipment, controls, machinery,
+system or any part of the installation shall be maintained in the bound paged book kept for the
+purpose. The record shall be signed by the person(s) making such inspection, testing, and examination
+and be countersigned by the installation Manager/Dy. Manager/Manager.
+
+A.2 - General (Machinery & Equipment):-
+
+9. In an area where flammable gas concentration is found or likely to contain in excess of the limit
+as specified in Regulation 95(2) of the Oil Mine Regulations 2017 (OMR-2017), the area shall be
+cordoned/fenced off and no person shall enter into such area. Provided that only competent person with
+all provisions of life saving rescue apparatus and equipment may be allowed to enter into such area(s)
+for the purpose of detection and control, subject to the condition that the flammable gas concentration
+does not exceed the lower limit of explosion. Any vehicle/internal combustion engine without air intake
+shutoff valve, spark arrestor and without proper insulation of exhaust pipe, catalytic convertor & such
+other hot components of the equipment shall not be allowed in such area.
+
+10. All machinery and equipment deployed in the mine shall be inspected at least once in a week by the
+competent person(s) appointed for the purpose to ensure its safe working and also to ensure that
+machinery being maintained as per OEM guidelines and strictures and statute of Oil Mines Regulations,
+2017. Record of all such examination shall be kept maintained at the site.
+
+11. Where compressed air operated starter of IC engine is not provided, the starter and the battery
+shall be housed in flame proof enclosures.
+
+12. It shall be ensured that suitable protective systems, such as automatic fire detection and
+suppression system (AFDSS), engine coolant temperature sensor, engine oil pressure gauge, over heating
+tripping system and exhaust manifold and turbo charger guards, are provided and maintained on every IC
+engine. It shall also be ensured that the exhaust of every IC engine including exhaust pipe, muffler/
+silencer, are adequately insulated/protected to prevent contact with inflammable fluids.
+
+13. At every new location, before commencement of production/drilling activities, a pre-commissioning
+audit of all the equipments shall be carried out by a HSE team and the deficiencies, so observed shall
+be rectified before commencement of production/drilling activities. A record of the same shall be kept
+available at the Installation for reference and shall be produced to the Inspecting Officer, whenever
+required.
+
+14. Diesel engine of fixed/mobile vehicles used in hazardous area shall be provided with a readily
+accessible air intake shut off valve, in addition to the remote controlled provided where a diesel
+engine is located within 30 m of a well as per the Regulation 97(3)(a) of OMR, 2017.
+
+B.1 - Production Operations (On-site Requirement):
+
+15. The abstract of operating instructions, emergency shutdown (ESD) procedure, ESD Trip set pressures
+shall be displayed/made available in the control room and near all important operating equipment in
+local language or language known to majority.
+
+16. A system for continuous monitoring and detection of hydrocarbon gas with alarm system shall be
+provided and maintained at production manifold, gas injection manifold, gas separator/scrubber area,
+all fired heaters areas including heater treater, bath heater, indirect heater areas, flare knockout
+drum area and other areas as determined by manager for the purpose. In addition, monitoring by portable
+spot gas detection system on hourly basis or at shorter intervals as may be decided by the manager
+shall be carried out and a record of such monitoring/detection by portable spot gas detection system
+shall be kept in register kept for the purpose and shall be signed and dated by the person making the
+measurement and countersigned by the Installation Manager. In case of the continuous monitoring and
+detection system, the measured reading for at least 30 days shall be kept in distinct non-editable
+electronic form.
+
+17. Intrinsically safe internal communication system, like paging, walkie-talkie & mobile phones shall
+be provided at strategic locations for the purpose of effective communication.
+
+18. An Alarm Management System shall be established to ensure that all the alarms are monitored,
+analysed, segregated and acted upon so that all the operational parameters are well within the
+permissible limits.
+
+19. Pneumatic or electronic operated Emergency shutdown (ESD) valve to shut off fuel/gas supply in
+fired heaters, heater treater and bath heaters for quick response, in case of any emergency, shall be
+provided and maintained.
+
+20. Exhaust pipe of any burners (fired heaters, heater treater, bath heater, etc) shall be thermally
+insulated.
+
+B.2 - Production Operations (Pipelines):
+
+21. Detailed Layout plan(s)/part plan(s) of all pipelines & their network, connected to production
+Installation showing clearly the size, length, identification code & purpose, shall be prepared on a
+suitable scale, maintained and kept available at the mines in addition to the plans maintained under
+Regulation 9(1) of the OMR-2017. The plan shall be accurate and updated whenever any pipeline is
+laid/replaced/removed.
+
+22. Records of pipeline data, containing design data and as laid drawings shall be maintained at
+respective Installation. Operating conditions of pressure/temperature and dozing shall be prepared for
+each and every pipeline with suitable controls.
+
+23. It shall be ensured that persons engaged in operation and maintenance possesses adequate knowledge
+and experience to ensure functioning of the pipelines in a safe and efficient manner.
+
+24. If a pipeline system is de-rated to a lower operating pressure in lieu of repair/replacement or
+reduction in pipe wall thickness, the new MAWP (Maximum Allowable Working Pressure) shall be
+determined.
+
+25. Records of all operational activities for pipelines shall be kept and maintained. All pipelines
+operations & maintenance including detection of leakage, repair, laying and replacement shall be
+carried out by the person authorised for the purpose under the supervision of an official/competent
+person(s), carrying adequate safety devices including portable gas detector and arrangement of Fire
+Fighting.
+
+26. The persons engaged in operation shall maintain vigilance for detection and control of any
+leakages. At least three portable gas detectors, duly calibrated, shall be kept available and
+maintained at Installations to monitor the leakage.
+
+27. Any reported leakage of any pipeline shall be immediately investigated/examined by competent
+person(s) authorized for the purpose and report of all such examinations and repair carried out
+thereafter shall be recorded in a bound page book.
+
+28. Persons likely to be affected shall be made aware about the hazards associated with the
+Hydrocarbon pipeline(s) and suitable measures to be taken in case of observance of oil/gas leakages, at
+periodic/regular interval.
+
+29. The fire-fighting arrangements shall be made and kept readily available for immediate use while
+detecting and repairing of hydrocarbon leakage.
+
+30. Sections in pipelines where probability of water and/or solid accumulation is more shall be
+identified and flagged. Such identified sections that are predicted to have highest susceptibility to
+accumulation of corrosion causing substance and for longest residence time shall be assessed to have
+highest likelihood of occurrence of internal corrosion.
+
+31. If there is high number of leakages in the pipeline, then the pipeline shall be replaced on
+priority.
+
+32. On the basis of analysis of pipe line survey/measurement results, the competent person authorized
+for the purpose shall declare a pipeline, whether it is 'fit for use'. The period of further use of
+pipeline after every such test shall be clearly mentioned in the report. The residual life of all
+pipelines arrived/based on recommended practice shall explicitly be recorded in terms of years &
+months.
+
+33. Non-destructive Testing of all Pipeline(s) shall be carried out to detect cracks, fissures,
+metallurgical degradation besides physical deterioration such as loss in thickness, pitting etc. Ultra
+sonic/Non-destructive Testing of pipe wall thickness measurement shall be carried out for both
+underground as well as above ground pipeline sections once in every five years and records thereof
+shall be maintained. The frequency of Ultrasonic Test inspection shall be increased as determined by
+the manager depending upon the pipeline condition, leakage history and criticality of operation.
+
+34. Valves on flow pipelines shall be tested and serviced once in every year in in-situ condition to
+ensure in safe working order.
+
+35. Calibrated pressure gauges & Pressure relief valves of each type used in mine shall be kept readily
+available in spare in adequate numbers.
+
+36. After Bean Pressure(ABP) of flowing wells shall be monitored on daily basis. If there is any
+abnormal reduction or increase in ABP, investigation shall be carried out to ascertain the reason for
+the same and corrective measures shall be taken.
+
+37. Standing operating Procedures for rig-less logging of the well shall be prepared and implemented to
+ensure safe operations.
+
+38. Non-destructive testing & structural stability test shall be carried out for installation
+structure(s) including flare structure which are susceptible to stress, corrosion and fatigue once in
+every five years.
+
+39. All equipment, plant, machinery and facilities system which are no longer in use shall be taken out
+of service with all hazardous fluid removed from the system.
+
+C. - Drilling Operations:
+
+40. Detailed layout plan, on a suitable scale, of all the production/injection pipelines, power cables
+and any other line connected with any production facilities shall be prepared and kept available, in
+addition to the plan maintained under Regulation 9(1) of the OMR,2017 and a copy thereof shall be
+provided to concern Installation Managers of the drilling & production operations.
+
+41. Rig transportation, rigging-up and rig-dismantling operations shall be carried out under the
+constant and close supervision of official authorized by the manager for the purpose.
+
+42. During rigging-up and rig-dismantling operation, a suitable arrangement for anchoring of safety
+belt and/or other suitable fall prevention devices, like mobile elevating work platform, shall be
+provided.
+
+43. In case of drilling activity inside an installation/at cluster location, prior to movement of the
+rig, detailed risk analysis shall be carried out to determine the additional risks that may arise due
+to drilling rig related activities.
+
+44. In a cluster well location, the drilling rig and equipment shall be suitably placed at safe
+distance from a production/injection wells, X-mas trees, flow lines and injection lines to carry out
+drilling activities in safe & efficient manner and protected to prevent from damage due to fall of
+material during rig transportation, rigging-up and rig-dismantling operations.
+
+45. Procedure for handing over/taking over including intervening activities of well shall be
+documented.
+
+46. Tubing tongs with proper locking arrangement shall be provided for making and breaking of tubing
+connections.
+
+47. A gas detector or explosimeter, connected to audio visual alarm near the driller's stand, shall be
+provided and maintained at the riser mouth in addition to the detector provided at shale shaker.
+
+48. Pressure gauges of hydraulic power tongs shall be provided at driller's stand for monitoring, in
+addition to that provided at substructure of the rig.
+
+49. It shall be ensured that every draw works is provided with fail safe braking system, so as to get
+automatically applied in case of any pneumatic/hydraulic component failure.
+
+50. Care shall be taken for ensuring that various SOP's made in connection with drilling operation
+shall be in accordance with OMR 2017 and relevant OISD standards and guidelines issued from time to
+time.
+
+All Owners, Agents and Managers of the oil mines are therefore, advised to strictly comply with the
+aforementioned guidelines for enhanced safety in their respective oil/gas mines.
+
+(R. Subramanian), Chief Inspector of Mines and Director General of Mines Safety(O).

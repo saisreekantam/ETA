@@ -1,0 +1,83 @@
+{
+  "accuracy_vs_baseline": {
+    "n_test_runs": 120,
+    "n_compound_positive": 30,
+    "note": "scored at each run's true hazard zone (run-level, not pooled across all 7 zones)",
+    "gnn": {
+      "precision": 0.909,
+      "recall": 1.0,
+      "f1": 0.952
+    },
+    "baseline_single_sensor": {
+      "precision": 0.37,
+      "recall": 1.0,
+      "f1": 0.541
+    }
+  },
+  "fnr_at_matched_fpr": {
+    "gnn": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.056,
+        "fnr": 0.0,
+        "threshold": 0.0646
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.111,
+        "fnr": 0.0,
+        "threshold": 0.033
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.211,
+        "fnr": 0.0,
+        "threshold": 0.0
+      }
+    ],
+    "baseline_single_sensor": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.056,
+        "fnr": 0.9,
+        "threshold": 25.5418
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.111,
+        "fnr": 0.8,
+        "threshold": 24.0968
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.211,
+        "fnr": 0.6,
+        "threshold": 21.1345
+      }
+    ]
+  },
+  "zone_localization": {
+    "n_compound_test_runs": 30,
+    "gnn_top_zone_accuracy": 1.0,
+    "baseline_top_zone_accuracy": 0.233,
+    "note": "fraction of compound test runs where the model's highest-scoring zone (of all 7) matches the zone the dual-fault was actually injected into"
+  },
+  "lead_time": {
+    "n_runs_evaluated": 30,
+    "gnn": {
+      "n": 30,
+      "median_samples": 6.0,
+      "p10_samples": 0.0,
+      "median_minutes": 18.0,
+      "p10_minutes": 0.0
+    },
+    "baseline_single_sensor": {
+      "n": 30,
+      "median_samples": 0.0,
+      "p10_samples": -3.0,
+      "median_minutes": 0.0,
+      "p10_minutes": -9.0
+    },
+    "note": "negative = detected before/at ground-truth onset (anticipatory); positive = detected N samples (3 min each) after onset; both measured at the run's true hazard zone"
+  }
+}

@@ -1,0 +1,194 @@
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { Film, Upload, Webcam, Play, Square, AlertCircle } from "lucide-react";
+import { API_BASE, apiFetch, getApiKey } from "./api";
+
+const SOURCE_MODES = [
+  { key: "sample", label: "Sample clip (demo)", icon: Film },
+  { key: "upload", label: "Upload video (demo)", icon: Upload },
+  { key: "live", label: "Live camera (production)", icon: Webcam },
+];
+
+export default function LiveMonitoring({ zones }) {
+  const [sourceMode, setSourceMode] = useState("sample"); // "sample" | "upload" | "live"
+  const [zone, setZone] = useState("reactor_zone");
+  const [runIntrusion, setRunIntrusion] = useState(true);
+  const [runFall, setRunFall] = useState(true);
+  const [hasPermit, setHasPermit] = useState(false);
+  const [uploadedPath, setUploadedPath] = useState(null);
+  const [session, setSession] = useState(null);
+  const [events, setEvents] = useState([]);
+  const [status, setStatus] = useState(null);
+  const [error, setError] = useState(null);
+  const pollRef = useRef(null);
+
+  useEffect(() => () => stopPolling(), []);
+
+  function stopPolling() {
+    if (pollRef.current) clearInterval(pollRef.current);
+  }
+
+  async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append("file", file);
+    const res = await apiFetch("/vision/upload", { method: "POST", body: form });
+    const data = await res.json();
+    setUploadedPath(data.path);
+  }
+
+  async function startSession() {
+    setError(null);
+    const params = new URLSearchParams({
+      zone, run_intrusion: String(runIntrusion), run_fall: String(runFall),
+      has_active_permit: String(hasPermit),
+    });
+    if (sourceMode === "live") {
+      params.set("live", "true");
+      params.set("camera_index", "0");
+    } else {
+      params.set("live", "false");
+      params.set("video_path", sourceMode === "upload" ? uploadedPath : "data/ppe_vision/cached_outputs/sample_demo_clip.mp4");
+    }
+    try {
+      const res = await apiFetch(`/vision/sessions?${params.toString()}`, { method: "POST" });
+      if (!res.ok) throw new Error(`Failed to start session: ${res.status}`);
+      const data = await res.json();
+      setSession(data);
+      pollRef.current = setInterval(async () => {
+        const evRes = await apiFetch(`/vision/sessions/${data.session_id}/events`);
+        const evData = await evRes.json();
+        setStatus(evData);
+        setEvents(evData.events);
+        if (evData.error) setError(evData.error);
+      }, 1000);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function stopSession() {
+    if (session) {
+      await apiFetch(`/vision/sessions/${session.session_id}/stop`, { method: "POST" });
+    }
+    stopPolling();
+    setSession(null);
+    setStatus(null);
+  }
+
+  return (
+    <div className="live-monitoring">
+      <div className="live-controls">
+        <div className="live-control-group">
+          <label>Source</label>
+          <div className="mode-toggle">
+            {SOURCE_MODES.map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                className={sourceMode === key ? "mode-btn active" : "mode-btn"}
+                onClick={() => setSourceMode(key)} disabled={!!session}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <Icon size={13} /> {label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <AnimatePresence>
+          {sourceMode === "upload" && (
+            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="live-control-group">
+              <input type="file" accept="video/*" onChange={handleUpload} disabled={!!session} />
+              {uploadedPath && <span className="upload-ok">uploaded ✓</span>}
+            </motion.div>
+          )}
+
+          {sourceMode === "live" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="status-banner loading">
+              Opens the server machine's camera (device 0). In production this points at an
+              RTSP plant CCTV feed instead -- same code path, different source. Requires OS
+              camera permission to be granted to the process running the backend.
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <div className="live-control-group">
+          <label>Zone this camera covers</label>
+          <select value={zone} onChange={(e) => setZone(e.target.value)} disabled={!!session}>
+            {zones && Object.keys(zones).map((z) => <option key={z} value={z}>{z}</option>)}
+          </select>
+        </div>
+
+        <div className="live-control-group checkboxes">
+          <label><input type="checkbox" checked={runIntrusion} onChange={(e) => setRunIntrusion(e.target.checked)} disabled={!!session} /> Run zone-intrusion check</label>
+          <label><input type="checkbox" checked={runFall} onChange={(e) => setRunFall(e.target.checked)} disabled={!!session} /> Run fall/man-down check</label>
+          <label><input type="checkbox" checked={hasPermit} onChange={(e) => setHasPermit(e.target.checked)} disabled={!!session} /> Active permit covers this zone</label>
+        </div>
+
+        {!session ? (
+          <button className="replay-btn" onClick={startSession} disabled={sourceMode === "upload" && !uploadedPath}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Play size={13} /> Start detection</span>
+          </button>
+        ) : (
+          <button className="replay-btn stop" onClick={stopSession}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Square size={12} /> Stop</span>
+          </button>
+        )}
+        <AnimatePresence>
+          {error && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="status-banner error">
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> {error}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <AnimatePresence>
+        {session && (
+          <motion.div
+            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="live-feed"
+          >
+            <div className="live-stream-frame">
+              <img
+                src={`${API_BASE}/vision/sessions/${session.session_id}/stream?api_key=${encodeURIComponent(getApiKey())}`}
+                alt="live detection feed"
+                className="live-stream-image"
+              />
+              <span className="live-corner tl" /><span className="live-corner tr" />
+              <span className="live-corner bl" /><span className="live-corner br" />
+              <span className="live-rec-badge">
+                <motion.span className="live-rec-dot" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} />
+                LIVE
+              </span>
+            </div>
+            <div className="live-side">
+              <div className="live-status">
+                {status && <>frames processed: {status.frames_processed} · running: {String(status.running)}</>}
+              </div>
+              <h3>Detection events</h3>
+              <ul className="live-events">
+                <AnimatePresence initial={false}>
+                  {events.map((e, i) => (
+                    <motion.li
+                      key={`${e.timestamp}-${i}`}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className={`live-event ${e.event}`}
+                    >
+                      <strong>[{e.detector}]</strong> {e.detail}
+                    </motion.li>
+                  ))}
+                </AnimatePresence>
+              </ul>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

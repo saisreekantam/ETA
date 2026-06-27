@@ -1,0 +1,51 @@
+# --- environments / dependencies ---
+.venv/
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+
+# --- secrets / local config ---
+.env
+
+# --- frontend build ---
+frontend/dist/
+
+# --- large raw datasets (multi-GB, re-downloadable from the sources documented in
+# docs/ -- see business-impact.md / scenario-definitions.md for where each came from) ---
+data/ppe_vision/raw/
+data/fire_smoke/raw/
+data/fire_smoke/raw_dfire/
+data/fall_detection/raw/
+data/*.zip
+data/ppe_vision/*.zip
+data/fire_smoke/*.zip
+data/fall_detection/*.zip
+data/vision_uploads/*
+!data/vision_uploads/.gitkeep
+
+# --- stock/pretrained checkpoints (auto-downloaded by ultralytics on first run,
+# don't need to be committed -- only our FINE-TUNED weights in vision/weights/ do) ---
+rtdetr-l.pt
+yolo26n.pt
+
+# --- training run artifacts (epoch checkpoints/plots, regeneratable, large) ---
+vision/runs/
+
+# --- runtime state (audit-trail DB, live-vision upload scratch space) ---
+agents/checkpoints/*.sqlite
+agents/checkpoints/*.sqlite-shm
+agents/checkpoints/*.sqlite-wal
+*.sqlite-journal
+
+# --- TEP simulator build artifacts (compiled per-platform, rebuild with f2py) ---
+simulator/tep2py/*.so
+simulator/tep2py/__pycache__/
+
+# --- alembic-generated __pycache__ ---
+db/migrations/__pycache__/
+db/migrations/versions/__pycache__/
+
+# --- misc ---
+*.log
+.pytest_cache/
