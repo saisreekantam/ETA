@@ -592,6 +592,7 @@ header h1 {
 .live-event.ppe_violation { border-left-color: var(--accent-orange); }
 .live-event.unauthorized_entry { border-left-color: var(--accent-red); }
 .live-event.fall_detected { border-left-color: var(--accent-red); background: rgba(251, 88, 88, 0.08); }
+.live-event.fire_smoke_detected { border-left-color: var(--accent-red); background: rgba(251, 88, 88, 0.14); }
 
 /* ---------- scrollbar ---------- */
 

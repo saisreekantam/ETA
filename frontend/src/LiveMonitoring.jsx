@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Film, Upload, Webcam, Play, Square, AlertCircle } from "lucide-react";
+import { Film, Upload, Webcam, Play, Square, AlertCircle, Flame } from "lucide-react";
 import { API_BASE, apiFetch, getApiKey } from "./api";
 
 const SOURCE_MODES = [
@@ -14,6 +14,7 @@ export default function LiveMonitoring({ zones }) {
   const [zone, setZone] = useState("reactor_zone");
   const [runIntrusion, setRunIntrusion] = useState(true);
   const [runFall, setRunFall] = useState(true);
+  const [runFireSmoke, setRunFireSmoke] = useState(true);
   const [hasPermit, setHasPermit] = useState(false);
   const [uploadedPath, setUploadedPath] = useState(null);
   const [session, setSession] = useState(null);
@@ -42,7 +43,7 @@ export default function LiveMonitoring({ zones }) {
     setError(null);
     const params = new URLSearchParams({
       zone, run_intrusion: String(runIntrusion), run_fall: String(runFall),
-      has_active_permit: String(hasPermit),
+      run_fire_smoke: String(runFireSmoke), has_active_permit: String(hasPermit),
     });
     if (sourceMode === "live") {
       params.set("live", "true");
@@ -124,6 +125,7 @@ export default function LiveMonitoring({ zones }) {
         <div className="live-control-group checkboxes">
           <label><input type="checkbox" checked={runIntrusion} onChange={(e) => setRunIntrusion(e.target.checked)} disabled={!!session} /> Run zone-intrusion check</label>
           <label><input type="checkbox" checked={runFall} onChange={(e) => setRunFall(e.target.checked)} disabled={!!session} /> Run fall/man-down check</label>
+          <label><input type="checkbox" checked={runFireSmoke} onChange={(e) => setRunFireSmoke(e.target.checked)} disabled={!!session} /> <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Flame size={12} /> Run fire/smoke check</span></label>
           <label><input type="checkbox" checked={hasPermit} onChange={(e) => setHasPermit(e.target.checked)} disabled={!!session} /> Active permit covers this zone</label>
         </div>
 

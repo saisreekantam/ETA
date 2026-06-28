@@ -232,6 +232,7 @@ def start_vision_session(
     rtsp_url: str | None = None,
     run_intrusion: bool = False,
     run_fall: bool = False,
+    run_fire_smoke: bool = False,
     has_active_permit: bool = False,
 ):
     if live:
@@ -245,7 +246,7 @@ def start_vision_session(
 
     session = create_session(
         source=source, zone=zone, run_intrusion=run_intrusion, run_fall=run_fall,
-        has_active_permit=has_active_permit, mode=mode, loop_video=not live,
+        run_fire_smoke=run_fire_smoke, has_active_permit=has_active_permit, mode=mode, loop_video=not live,
     )
     return {"session_id": session.session_id, "mode": mode}
 
