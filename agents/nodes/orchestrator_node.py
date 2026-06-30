@@ -14,9 +14,12 @@ from __future__ import annotations
 import requests
 
 from agents.state import PipelineState, RetrievedCitation
+from db.settings import settings
 from rag.retriever import retrieve
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+# Base from settings (env OLLAMA_URL) so this works both locally (localhost) and in
+# Docker (http://ollama:11434) without a code change.
+OLLAMA_URL = f"{settings.ollama_url.rstrip('/')}/api/generate"
 OLLAMA_MODEL = "llama3.1:8b"
 # llama3.1:8b doesn't fit fully in 8 GB VRAM alongside the torch CUDA context;
 # offload some layers to CPU so the alloc succeeds (0/None = let Ollama decide

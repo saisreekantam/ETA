@@ -4,7 +4,7 @@ import {
   ShieldAlert, Radio, PlayCircle, Camera, ScrollText, AlertTriangle,
   FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight, RefreshCw,
 } from "lucide-react";
-import { getZones, getScenarios, runScenario } from "./api";
+import { API_BASE, getZones, getScenarios, runScenario } from "./api";
 import PlantMap from "./PlantMap";
 import Replay from "./Replay";
 import LiveMonitoring from "./LiveMonitoring";
@@ -299,7 +299,7 @@ export default function App() {
                           {result.vision_detections.map((d, i) => (
                             <div key={i} className="vision-card">
                               {d.image_url && (
-                                <img src={`http://localhost:8000${d.image_url}`} alt={d.frame_id} className="vision-image" />
+                                <img src={`${API_BASE}${d.image_url}`} alt={d.frame_id} className="vision-image" />
                               )}
                               <div className="vision-meta">
                                 <div><span className="meta-key">Zone</span> {d.zone}</div>

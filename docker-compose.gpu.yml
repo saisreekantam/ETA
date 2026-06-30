@@ -1,0 +1,21 @@
+# GPU overlay -- requires the NVIDIA Container Toolkit on the host.
+# Use with:  docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+# (or ./run-gpu.sh). Without the toolkit, omit this file and everything runs on CPU.
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  backend:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

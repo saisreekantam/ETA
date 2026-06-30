@@ -1,4 +1,6 @@
-export const API_BASE = "http://localhost:8000";
+// Defaults to the locally-published backend port; override at build time with
+// VITE_API_BASE (e.g. in Docker) without touching code.
+export const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
 const API_KEY_STORAGE = "isi_api_key";
 

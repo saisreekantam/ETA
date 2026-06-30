@@ -49,3 +49,4 @@ db/migrations/versions/__pycache__/
 # --- misc ---
 *.log
 .pytest_cache/
+.docker-build.log

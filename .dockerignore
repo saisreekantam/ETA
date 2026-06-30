@@ -1,0 +1,13 @@
+.venv
+**/__pycache__
+*.pyc
+.git
+.gitignore
+frontend/node_modules
+frontend/dist
+*.md
+.env
+.pytest_cache
+data/vision_uploads
+**/.DS_Store
+**/*.Zone.Identifier
