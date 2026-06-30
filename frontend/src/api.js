@@ -27,8 +27,8 @@ export async function getScenarios() {
   return res.json();
 }
 
-export async function runScenario(runId) {
-  const res = await apiFetch(`/run/${runId}`, { method: "POST" });
+export async function runScenario(runId, { force = false } = {}) {
+  const res = await apiFetch(`/run/${runId}${force ? "?force=true" : ""}`, { method: "POST" });
   if (!res.ok) throw new Error(`Run failed: ${res.status}${res.status === 401 ? " (check API key)" : ""}`);
   return res.json();
 }

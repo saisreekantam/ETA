@@ -16,6 +16,7 @@ from __future__ import annotations
 import sys
 import time
 import uuid
+from datetime import timedelta
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
@@ -117,9 +118,79 @@ def get_scenarios(facility_id: str | None = None, db: Session = Depends(get_db))
     return list(by_scenario.values())
 
 
+def _static_state_fields(run_id: str) -> dict:
+    """The parts of the response that come straight from the run's input data (permits,
+    worker presence, cached vision frames) rather than the pipeline -- cheap to rebuild
+    via load_state_for_run, so a cached response can include them without re-running the
+    GNN/LLM."""
+    state = load_state_for_run(run_id)
+    return {
+        "permits": state["permits"],
+        "worker_presence": state["worker_presence"],
+        "vision_detections": [{
+            **det,
+            "image_url": f"/static/ppe_vision/{Path(det['attention_map_path']).name}" if det["attention_map_path"] else None,
+        } for det in state["vision_detections"]],
+    }
+
+
+def _read_stored_result(db: Session, fid: uuid.UUID, run_id: str, run_row: Run | None) -> dict | None:
+    """Return the most recently persisted pipeline result for this run, or None if it has
+    never been run. Lets a repeat click return instantly instead of re-invoking the ~20s
+    GNN+LLM pipeline; pass ?force=true to recompute. Keyed off the latest IncidentReport
+    so all the related rows come from the same run pass."""
+    if run_row is None:
+        return None
+    latest_report = (db.query(IncidentReport).filter_by(facility_id=fid, run_id=run_row.id)
+                     .order_by(IncidentReport.created_at.desc()).first())
+    if latest_report is None:
+        return None
+    # All rows from one pipeline pass are written in a single transaction, but with
+    # per-row default timestamps a few ms apart (scores/audit are added before the
+    # report). Anchor a few seconds before the latest report to capture the whole pass --
+    # safe because two runs of the same scenario are always >20s apart (one pipeline run).
+    cutoff = latest_report.created_at - timedelta(seconds=10)
+
+    scores = (db.query(ZoneRiskScore).filter_by(facility_id=fid, run_id=run_row.id)
+              .filter(ZoneRiskScore.computed_at >= cutoff).all())
+    if not scores:
+        return None
+    violations = (db.query(PermitViolation).filter_by(facility_id=fid, run_id=run_row.id)
+                  .filter(PermitViolation.created_at >= cutoff).all())
+    audit = (db.query(AuditLogEntry).filter_by(facility_id=fid, run_id=run_row.id)
+             .filter(AuditLogEntry.created_at >= cutoff).order_by(AuditLogEntry.created_at).all())
+
+    # ZoneRiskScore has no zone relationship (only zone_id), so resolve keys by hand.
+    key_by_zone_id = {z.id: z.key for z in db.query(Zone).filter_by(facility_id=fid).all()}
+
+    return {
+        "run_id": run_id,
+        "cached": True,
+        "zone_risk_scores": [{
+            "zone": key_by_zone_id.get(s.zone_id), "compound_risk_score": s.compound_risk_score,
+            "baseline_risk_score": s.baseline_risk_score, "contributing_sensors": s.contributing_sensors,
+        } for s in scores],
+        "permit_violations": [{
+            "zone": v.zone.key, "reason": v.reason, "severity": v.severity,
+        } for v in violations],
+        "escalation_level": latest_report.escalation_level,
+        "incident_report": latest_report.report_text,
+        "retrieved_citations": latest_report.citations,
+        "audit_log": [a.message for a in audit],
+        **_static_state_fields(run_id),
+    }
+
+
 @app.post("/run/{run_id}")
-def run_scenario(run_id: str, facility_id: str | None = None, db: Session = Depends(get_db)):
+def run_scenario(run_id: str, force: bool = False, facility_id: str | None = None,
+                 db: Session = Depends(get_db)):
     try:
+        fid = _resolve_facility_id(db, facility_id)
+        run_row = db.query(Run).filter_by(external_run_id=run_id).one_or_none()
+        if not force:
+            cached = _read_stored_result(db, fid, run_id, run_row)
+            if cached is not None:
+                return cached
         state = load_state_for_run(run_id)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"run_id {run_id} not found")
@@ -127,9 +198,6 @@ def run_scenario(run_id: str, facility_id: str | None = None, db: Session = Depe
     pipeline = get_pipeline()
     config = {"configurable": {"thread_id": f"api-{uuid.uuid4().hex[:8]}"}}
     final_state = pipeline.invoke(state, config=config)
-
-    fid = _resolve_facility_id(db, facility_id)
-    run_row = db.query(Run).filter_by(external_run_id=run_id).one_or_none()
 
     # Persist results -- this is what makes incident history real instead of thrown
     # away after each request. zone_id per score is looked up by key since the agent

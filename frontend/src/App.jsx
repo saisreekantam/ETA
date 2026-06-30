@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ShieldAlert, Radio, PlayCircle, Camera, ScrollText, AlertTriangle,
-  FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight,
+  FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight, RefreshCw,
 } from "lucide-react";
 import { getZones, getScenarios, runScenario } from "./api";
 import PlantMap from "./PlantMap";
@@ -50,7 +50,7 @@ export default function App() {
     });
   }, []);
 
-  async function handleRun(runId) {
+  async function handleRun(runId, { force = false } = {}) {
     setSelectedRunId(runId);
     setReplayFrame(null);
     if (mode !== "single") return; // Replay component drives itself off selectedRunId
@@ -58,7 +58,7 @@ export default function App() {
     setError(null);
     setResult(null);
     try {
-      const res = await runScenario(runId);
+      const res = await runScenario(runId, { force });
       setResult(res);
     } catch (e) {
       setError(String(e));
@@ -235,16 +235,29 @@ export default function App() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.35, ease: "easeOut" }}
                     >
-                      <motion.div
-                        className={`escalation-badge esc-${result.escalation_level}`}
-                        animate={result.escalation_level === "emergency" ? {
-                          boxShadow: ["0 0 18px rgba(251,88,88,0.3)", "0 0 38px rgba(251,88,88,0.65)", "0 0 18px rgba(251,88,88,0.3)"],
-                        } : {}}
-                        transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-                      >
-                        {result.escalation_level === "emergency" ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
-                        {ESCALATION_LABEL[result.escalation_level]}
-                      </motion.div>
+                      <div className="result-panel-head">
+                        <motion.div
+                          className={`escalation-badge esc-${result.escalation_level}`}
+                          animate={result.escalation_level === "emergency" ? {
+                            boxShadow: ["0 0 14px rgba(217,99,99,0.25)", "0 0 26px rgba(217,99,99,0.5)", "0 0 14px rgba(217,99,99,0.25)"],
+                          } : {}}
+                          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+                        >
+                          {result.escalation_level === "emergency" ? <AlertTriangle size={14} /> : <CheckCircle2 size={14} />}
+                          {ESCALATION_LABEL[result.escalation_level]}
+                        </motion.div>
+                        <div className="result-panel-actions">
+                          {result.cached && <span className="cached-pill" title="Loaded from a previous run, not recomputed">Cached</span>}
+                          <button
+                            className="rerun-btn"
+                            onClick={() => handleRun(result.run_id, { force: true })}
+                            disabled={loading}
+                            title="Re-run the full pipeline (GNN → permit correlation → LLM report)"
+                          >
+                            <RefreshCw size={13} /> Re-run
+                          </button>
+                        </div>
+                      </div>
 
                       <section>
                         <h3><ScrollText size={13} /> Audit trail</h3>
