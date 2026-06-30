@@ -2,10 +2,10 @@ import { motion } from "motion/react";
 
 function riskColor(score) {
   if (score == null) return "#222b3a";
-  if (score >= 0.9) return "#fb5858";
-  if (score >= 0.7) return "#fb923c";
-  if (score >= 0.5) return "#fbbf24";
-  return "#2fae6e";
+  if (score >= 0.9) return "#d96363";
+  if (score >= 0.7) return "#d9824a";
+  if (score >= 0.5) return "#d9a441";
+  return "#3f8f72";
 }
 
 function glowFilter(score) {

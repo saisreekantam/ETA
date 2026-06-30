@@ -97,7 +97,7 @@ export default function App() {
       >
         <div className="appbar-brand">
           <div className="header-icon">
-            <ShieldAlert size={20} color="#06141a" strokeWidth={2.4} />
+            <ShieldAlert size={20} color="var(--accent-cyan)" strokeWidth={2.2} />
           </div>
           <div>
             <h1>Industrial Safety Intelligence</h1>
@@ -320,10 +320,10 @@ export default function App() {
 }
 
 const LEGEND = [
-  { label: "Normal", color: "#2fae6e" },
-  { label: "Watch", color: "#fbbf24" },
-  { label: "Alert", color: "#fb923c" },
-  { label: "Critical", color: "#fb5858" },
+  { label: "Normal", color: "#3f8f72" },
+  { label: "Watch", color: "#d9a441" },
+  { label: "Alert", color: "#d9824a" },
+  { label: "Critical", color: "#d96363" },
 ];
 
 function PlantLegend() {

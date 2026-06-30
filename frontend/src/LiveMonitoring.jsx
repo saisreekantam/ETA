@@ -9,6 +9,33 @@ const SOURCE_MODES = [
   { key: "live", label: "Live camera (production)", icon: Webcam },
 ];
 
+/** Detection events repeat on every frame, so a raw list is dozens of identical
+ * rows. Collapse ALL identical events (same detector + event + detail) into one
+ * row carrying a total count and the time it was last seen, ordered by most recent
+ * -- this is how real monitoring consoles surface "still happening" without a wall
+ * of duplicates. Deduping across the whole list (not just consecutive) matters here
+ * because the detectors interleave frame-to-frame. */
+function groupEvents(events) {
+  const byKey = new Map();
+  for (const e of events) {
+    const key = `${e.detector}|${e.event}|${e.detail}`;
+    const g = byKey.get(key);
+    if (g) {
+      g.count += 1;
+      g.lastTs = e.timestamp;
+    } else {
+      byKey.set(key, { ...e, count: 1, lastTs: e.timestamp });
+    }
+  }
+  return [...byKey.values()].sort((a, b) => (b.lastTs ?? 0) - (a.lastTs ?? 0));
+}
+
+function fmtTime(ts) {
+  if (ts == null) return "";
+  const d = typeof ts === "number" ? new Date(ts * (ts < 1e12 ? 1000 : 1)) : new Date(ts);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString([], { hour12: false });
+}
+
 export default function LiveMonitoring({ zones }) {
   const [sourceMode, setSourceMode] = useState("sample"); // "sample" | "upload" | "live"
   const [zone, setZone] = useState("reactor_zone");
@@ -77,6 +104,8 @@ export default function LiveMonitoring({ zones }) {
     setSession(null);
     setStatus(null);
   }
+
+  const grouped = groupEvents(events);
 
   return (
     <div className="live-monitoring">
@@ -169,24 +198,36 @@ export default function LiveMonitoring({ zones }) {
             </div>
             <div className="live-side">
               <div className="live-status">
-                {status && <>frames processed: {status.frames_processed} · running: {String(status.running)}</>}
+                {status && <>Frames processed: {status.frames_processed} · {status.running ? "running" : "stopped"}</>}
               </div>
-              <h3>Detection events</h3>
-              <ul className="live-events">
-                <AnimatePresence initial={false}>
-                  {events.map((e, i) => (
-                    <motion.li
-                      key={`${e.timestamp}-${i}`}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.25 }}
-                      className={`live-event ${e.event}`}
-                    >
-                      <strong>[{e.detector}]</strong> {e.detail}
-                    </motion.li>
-                  ))}
-                </AnimatePresence>
-              </ul>
+              <h3>
+                Detection events
+                {grouped.length > 0 && <span className="live-event-count">{grouped.length} active</span>}
+              </h3>
+              {grouped.length === 0 ? (
+                <div className="live-events-empty">No detections yet — monitoring the feed…</div>
+              ) : (
+                <ul className="live-events">
+                  <AnimatePresence initial={false}>
+                    {grouped.map((e) => (
+                      <motion.li
+                        key={`${e.detector}-${e.event}-${e.detail}`}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.25 }}
+                        className={`live-event ${e.event}`}
+                      >
+                        <div className="live-event-head">
+                          <span className="live-event-detector">{e.detector}</span>
+                          {e.count > 1 && <span className="live-event-badge">×{e.count}</span>}
+                          {fmtTime(e.lastTs) && <span className="live-event-time">{fmtTime(e.lastTs)}</span>}
+                        </div>
+                        <div className="live-event-detail">{e.detail}</div>
+                      </motion.li>
+                    ))}
+                  </AnimatePresence>
+                </ul>
+              )}
             </div>
           </motion.div>
         )}
