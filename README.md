@@ -90,7 +90,26 @@ scripts/             demo scenario runner, replay trace computation
 docs/                scenario definitions, business-impact figures (sourced or marked as estimates)
 ```
 
-## Running it locally
+## Quick start
+
+**Linux / Windows (Docker)** — one command brings up Postgres (pgvector), Ollama, the
+backend, and the frontend; migrations, seed, and the model pull happen automatically:
+```bash
+docker compose up            # CPU
+./run-gpu.sh                 # NVIDIA GPU (needs the NVIDIA Container Toolkit)
+```
+Then open http://localhost:5173.
+
+**macOS (Apple Silicon or Intel)** — Docker can't pass the Mac's Metal GPU into a
+container, so on Mac we run natively via Homebrew, which *does* use the GPU for the LLM:
+```bash
+./setup-mac.sh               # one-time: installs deps, pulls the model, seeds the DB
+./run-mac.sh                 # starts everything
+```
+`setup-mac.sh` needs [Homebrew](https://brew.sh). The first run installs the Python deps
+(a few GB) and pulls llama3.1:8b (~5GB); after that, `./run-mac.sh` is fast.
+
+## Running it locally (manual)
 
 **Backend**
 ```bash
