@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Film, Upload, Webcam, Play, Square, AlertCircle, Flame } from "lucide-react";
+import { Film, Upload, Webcam, Play, Square, AlertCircle, Flame, VideoOff } from "lucide-react";
 import { API_BASE, apiFetch, getApiKey } from "./api";
 
 const SOURCE_MODES = [
@@ -106,6 +106,11 @@ export default function LiveMonitoring({ zones }) {
   }
 
   const grouped = groupEvents(events);
+  // Only show the live frame when the session is genuinely streaming -- a failed camera
+  // open still creates a session, so gating on `session` alone shows a fake LIVE feed
+  // over an empty frame next to the error. status.error or status.running === false
+  // means the feed never came up.
+  const isStreaming = !!session && !error && status?.running !== false;
 
   return (
     <div className="live-monitoring">
@@ -184,17 +189,24 @@ export default function LiveMonitoring({ zones }) {
             className="live-feed"
           >
             <div className="live-stream-frame">
-              <img
-                src={`${API_BASE}/vision/sessions/${session.session_id}/stream?api_key=${encodeURIComponent(getApiKey())}`}
-                alt="live detection feed"
-                className="live-stream-image"
-              />
-              <span className="live-corner tl" /><span className="live-corner tr" />
-              <span className="live-corner bl" /><span className="live-corner br" />
-              <span className="live-rec-badge">
-                <motion.span className="live-rec-dot" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} />
-                LIVE
-              </span>
+              {isStreaming ? (
+                <>
+                  <img
+                    src={`${API_BASE}/vision/sessions/${session.session_id}/stream?api_key=${encodeURIComponent(getApiKey())}`}
+                    alt="live detection feed"
+                    className="live-stream-image"
+                  />
+                  <span className="live-rec-badge">
+                    <motion.span className="live-rec-dot" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} />
+                    LIVE
+                  </span>
+                </>
+              ) : (
+                <div className="live-stream-unavailable">
+                  <VideoOff size={28} />
+                  <span>{error ? "Feed unavailable" : "Connecting to feed…"}</span>
+                </div>
+              )}
             </div>
             <div className="live-side">
               <div className="live-status">

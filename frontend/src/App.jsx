@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ShieldAlert, Radio, PlayCircle, Camera, ScrollText, AlertTriangle,
-  FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight, RefreshCw,
+  FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight, RefreshCw, Info,
 } from "lucide-react";
 import { API_BASE, getZones, getScenarios, runScenario } from "./api";
 import PlantMap from "./PlantMap";
 import Replay from "./Replay";
 import LiveMonitoring from "./LiveMonitoring";
+import About from "./About";
 import "./App.css";
 
 const FACILITY_NAME = "Demo Steel & Chemical Plant";
@@ -23,6 +24,7 @@ const MODES = [
   { key: "single", label: "Single run", icon: PlayCircle },
   { key: "replay", label: "Time replay", icon: Radio },
   { key: "live", label: "Live CCTV", icon: Camera },
+  { key: "about", label: "About", icon: Info },
 ];
 
 const fadeUp = {
@@ -105,6 +107,22 @@ export default function App() {
           </div>
         </div>
 
+        <nav className="mode-toggle appbar-nav" aria-label="View mode">
+          {MODES.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              className={mode === key ? "mode-btn active" : "mode-btn"}
+              onClick={() => {
+                setMode(key);
+                if (key !== "single") setResult(null);
+                if (key !== "replay") setReplayFrame(null);
+              }}
+            >
+              <Icon size={14} /> <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+
         <div className="appbar-meta">
           <div className="facility-chip">
             <span className="facility-label">Facility</span>
@@ -117,26 +135,11 @@ export default function App() {
         </div>
       </motion.header>
 
-      <div className="layout">
+      <div className={mode === "single" || mode === "replay" ? "layout" : "layout no-sidebar"}>
+        {(mode === "single" || mode === "replay") && (
         <aside className="sidebar">
-          <nav className="mode-toggle mode-toggle-3" aria-label="View mode">
-            {MODES.map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                className={mode === key ? "mode-btn active" : "mode-btn"}
-                onClick={() => {
-                  setMode(key);
-                  if (key !== "single") setResult(null);
-                  if (key !== "replay") setReplayFrame(null);
-                }}
-              >
-                <Icon size={14} /> <span>{label}</span>
-              </button>
-            ))}
-          </nav>
-
           <AnimatePresence>
-            {mode !== "live" && (
+            {(mode === "single" || mode === "replay") && (
               <motion.div {...fadeUp}>
                 <div className="sidebar-heading">
                   <h2>Scenarios</h2>
@@ -185,10 +188,15 @@ export default function App() {
             )}
           </AnimatePresence>
         </aside>
+        )}
 
         <main className="main">
           <AnimatePresence mode="wait">
-            {mode === "live" ? (
+            {mode === "about" ? (
+              <motion.div key="about" {...fadeUp}>
+                <About />
+              </motion.div>
+            ) : mode === "live" ? (
               <motion.div key="live" {...fadeUp}>
                 <LiveMonitoring zones={zones} />
               </motion.div>
