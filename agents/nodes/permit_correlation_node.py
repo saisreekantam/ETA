@@ -16,12 +16,24 @@ RISK_SEVERITY_BANDS = [
     (0.0, "low"),
 ]
 
+_SEVERITY_ORDER = ["low", "medium", "high", "critical"]
+
+# PPE evidence (e.g. a missing helmet) is corroborating, not a "critical" condition on its
+# own -- a violation that is only escalated because of PPE shouldn't read as the same
+# emergency as an extreme sensor-driven compound risk. Cap PPE-corroborated violations here
+# unless the sensor risk is critical in its own right (see _ppe_capped_severity).
+PPE_SEVERITY_CAP = "high"
+
 
 def _severity_for(score: float) -> str:
     for threshold, label in RISK_SEVERITY_BANDS:
         if score >= threshold:
             return label
     return "low"
+
+
+def _cap_severity(severity: str, cap: str) -> str:
+    return severity if _SEVERITY_ORDER.index(severity) <= _SEVERITY_ORDER.index(cap) else cap
 
 
 def _ppe_note(state: PipelineState, zone: str) -> str | None:
@@ -40,21 +52,27 @@ def _ppe_note(state: PipelineState, zone: str) -> str | None:
     return None
 
 
-def _zone_intrusion_violations(state: PipelineState) -> list[PermitViolation]:
-    """Independent of the GNN risk score -- a person detected in a zone with no active
-    permit covering it is a real compliance issue on its own (see
-    vision/detectors/zone_intrusion.py), even if sensor-derived compound risk is low."""
+def _zone_intrusion_violations(state: PipelineState, risk_by_zone: dict[str, float]) -> list[PermitViolation]:
+    """A person detected in a zone with no active permit covering it is a real compliance
+    issue on its own (see vision/detectors/zone_intrusion.py), even when sensor-derived
+    compound risk is low. Severity scales with how dangerous the zone currently is rather
+    than being a fixed 'high' -- an intrusion into a quiet zone is a watch-level issue, the
+    same intrusion into a zone the GNN is flagging is critical. Zones with no score fall
+    back to 'medium' (an unauthorized presence is never merely 'low')."""
     violations = []
     for det in state["vision_detections"]:
         n_unauthorized = det["detections"].count("person_unauthorized")
         if n_unauthorized > 0:
+            zone_risk = risk_by_zone.get(det["zone"])
+            severity = _severity_for(zone_risk) if zone_risk is not None else "medium"
+            severity = max(severity, "medium", key=lambda s: _SEVERITY_ORDER.index(s))
             violations.append(PermitViolation(
                 permit_id="(none)",
                 zone=det["zone"],
                 reason=(f"Zone-intrusion detector (frame {det['frame_id']}): {n_unauthorized} "
                         f"person(s) detected in {det['zone']} with no active permit authorizing "
                         f"presence there."),
-                severity="high",
+                severity=severity,
             ))
     return violations
 
@@ -78,6 +96,10 @@ def permit_correlation_node(state: PipelineState) -> dict:
             ppe_note = _ppe_note(state, permit["zone"])
             if ppe_note:
                 reason += f" {ppe_note}"
+                # PPE shouldn't single-handedly make a violation 'critical'; cap it unless
+                # the sensor risk is already critical (>=0.9) without the PPE corroboration.
+                if risk < 0.9:
+                    severity = _cap_severity(severity, PPE_SEVERITY_CAP)
             violations.append(PermitViolation(
                 permit_id=permit["permit_id"],
                 zone=permit["zone"],
@@ -85,7 +107,7 @@ def permit_correlation_node(state: PipelineState) -> dict:
                 severity=severity,
             ))
 
-    violations.extend(_zone_intrusion_violations(state))
+    violations.extend(_zone_intrusion_violations(state, risk_by_zone))
 
     audit_entry = f"permit_correlation_node: {len(violations)} violation(s) flagged"
     return {"permit_violations": violations, "audit_log": state["audit_log"] + [audit_entry]}
