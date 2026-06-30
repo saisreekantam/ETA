@@ -21,10 +21,11 @@ from rag.retriever import retrieve
 # Docker (http://ollama:11434) without a code change.
 OLLAMA_URL = f"{settings.ollama_url.rstrip('/')}/api/generate"
 OLLAMA_MODEL = "llama3.1:8b"
-# llama3.1:8b doesn't fit fully in 8 GB VRAM alongside the torch CUDA context;
-# offload some layers to CPU so the alloc succeeds (0/None = let Ollama decide
-# on cards with enough VRAM). Tune up if your GPU is larger.
-OLLAMA_NUM_GPU = 20
+# llama3.1:8b doesn't fit fully in 8 GB VRAM alongside the torch CUDA context, so by
+# default we offload some layers to CPU (env OLLAMA_NUM_GPU, default 20). On a Mac's
+# unified-memory Metal GPU or a larger card, set OLLAMA_NUM_GPU=999 to run the whole
+# model on the accelerator; 0 lets Ollama decide.
+OLLAMA_NUM_GPU = settings.ollama_num_gpu
 
 ESCALATION_BANDS = [(0.9, "emergency"), (0.7, "alert"), (0.5, "monitor"), (0.0, "none")]
 

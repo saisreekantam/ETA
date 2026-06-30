@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg2://localhost:5433/industrial_safety"
     redis_url: str = "redis://localhost:6379/0"
     ollama_url: str = "http://localhost:11434"
+    # Layers Ollama offloads to the GPU for the report LLM. Default 20 fits an 8GB
+    # NVIDIA card (see orchestrator_node). Set high (e.g. 999) on Macs / large GPUs to
+    # run the whole model on the accelerator, or 0 to let Ollama decide.
+    ollama_num_gpu: int = 20
     api_key_required: bool = False  # flip true once keys are seeded (see db/seed.py)
     cors_origins: str = "*"
 

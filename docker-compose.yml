@@ -1,8 +1,13 @@
 # One-command run:  docker compose up
 #
-# GPU (NVIDIA toolkit on host):
+# GPU (NVIDIA toolkit on host, Linux/Windows only):
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
 #   ...or just:  ./run-gpu.sh
+#
+# Apple Silicon / Mac: plain `docker compose up` works and runs CPU-only -- Docker
+# can't pass the Metal GPU into Linux containers, so don't use the gpu overlay there.
+# To run the LLM on a Mac's GPU, run the backend natively (not in Docker) with
+# OLLAMA_NUM_GPU=999.
 #
 # Services: postgres (pgvector) + ollama + backend (FastAPI) + frontend (nginx).
 # The backend entrypoint waits for Postgres, runs migrations, and seeds on startup.
