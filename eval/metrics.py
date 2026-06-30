@@ -133,12 +133,12 @@ def compute_lead_time(gnn_preds: pd.DataFrame, baseline_preds: pd.DataFrame, n_r
     manifest = pd.read_csv(REPO_ROOT / "data" / "synthetic" / "manifest.csv").set_index("run_id")
 
     model = CompoundRiskGNN()
-    model.load_state_dict(torch.load(REPO_ROOT / "models" / "gnn" / "checkpoint.pt"))
+    model.load_state_dict(torch.load(REPO_ROOT / "models" / "gnn" / "checkpoint.pt", map_location="cpu"))
     model.eval()
     # MUST apply the same train-set normalization stats used during training -- raw
     # sensor scales (~0-4500) saturate the model otherwise (verified empirically: this
     # was a real bug, raw features gave logits of ~-220 vs the correct, normalized ~+4).
-    norm_stats = torch.load(REPO_ROOT / "models" / "gnn" / "norm_stats.pt")
+    norm_stats = torch.load(REPO_ROOT / "models" / "gnn" / "norm_stats.pt", map_location="cpu")
 
     def normalize(graph):
         for ntype, (mean, std) in norm_stats.items():

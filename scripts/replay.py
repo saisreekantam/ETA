@@ -37,9 +37,9 @@ def _lazy_load():
     global _model, _norm_stats, _baseline_stats
     if _model is None:
         _model = CompoundRiskGNN()
-        _model.load_state_dict(torch.load(REPO_ROOT / "models" / "gnn" / "checkpoint.pt"))
+        _model.load_state_dict(torch.load(REPO_ROOT / "models" / "gnn" / "checkpoint.pt", map_location="cpu"))
         _model.eval()
-        _norm_stats = torch.load(REPO_ROOT / "models" / "gnn" / "norm_stats.pt")
+        _norm_stats = torch.load(REPO_ROOT / "models" / "gnn" / "norm_stats.pt", map_location="cpu")
 
         normal_runs = pd.read_csv(REPO_ROOT / "data" / "synthetic" / "manifest.csv")
         normal_runs = normal_runs[normal_runs["condition"] == "normal"]
