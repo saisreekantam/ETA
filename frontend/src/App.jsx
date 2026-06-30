@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ShieldAlert, Radio, PlayCircle, Camera, ScrollText, AlertTriangle,
-  FileWarning, Quote, Eye, CheckCircle2,
+  FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight,
 } from "lucide-react";
 import { getZones, getScenarios, runScenario } from "./api";
 import PlantMap from "./PlantMap";
 import Replay from "./Replay";
 import LiveMonitoring from "./LiveMonitoring";
 import "./App.css";
+
+const FACILITY_NAME = "Demo Steel & Chemical Plant";
 
 const ESCALATION_LABEL = {
   none: "Normal",
@@ -85,21 +87,39 @@ export default function App() {
     }
   }
 
+  const hasResult = mode === "single" && result;
+
   return (
     <div className="app">
-      <motion.header initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <div className="header-icon">
-          <ShieldAlert size={20} color="#06141a" strokeWidth={2.4} />
+      <motion.header
+        className="appbar"
+        initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+      >
+        <div className="appbar-brand">
+          <div className="header-icon">
+            <ShieldAlert size={20} color="#06141a" strokeWidth={2.4} />
+          </div>
+          <div>
+            <h1>Industrial Safety Intelligence</h1>
+            <p className="subtitle">Compound risk detection · permit correlation · regulatory-grounded reports</p>
+          </div>
         </div>
-        <div>
-          <h1>Industrial Safety Intelligence</h1>
-          <p className="subtitle">Compound risk detection · permit correlation · regulatory-grounded incident reports</p>
+
+        <div className="appbar-meta">
+          <div className="facility-chip">
+            <span className="facility-label">Facility</span>
+            <span className="facility-name">{FACILITY_NAME}</span>
+          </div>
+          <div className="status-pill live">
+            <span className="status-dot" />
+            <Activity size={13} /> System online
+          </div>
         </div>
       </motion.header>
 
       <div className="layout">
         <aside className="sidebar">
-          <div className="mode-toggle mode-toggle-3">
+          <nav className="mode-toggle mode-toggle-3" aria-label="View mode">
             {MODES.map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
@@ -110,29 +130,39 @@ export default function App() {
                   if (key !== "replay") setReplayFrame(null);
                 }}
               >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <Icon size={13} /> {label}
-                </span>
+                <Icon size={14} /> <span>{label}</span>
               </button>
             ))}
-          </div>
+          </nav>
 
           <AnimatePresence>
             {mode !== "live" && (
               <motion.div {...fadeUp}>
-                <h2>Scenarios</h2>
+                <div className="sidebar-heading">
+                  <h2>Scenarios</h2>
+                  <span className="sidebar-count">{scenarios.length}</span>
+                </div>
+                <p className="sidebar-hint">
+                  {mode === "replay"
+                    ? "Pick a run to scrub its risk timeline."
+                    : "Run a benchmark trace through the pipeline."}
+                </p>
+
                 {scenarios.map((s) => (
                   <div key={s.scenario_id} className="scenario-group">
-                    <div className="scenario-name">{s.scenario_id.replace(/_/g, " ")}</div>
+                    <div className="scenario-name">{s.scenario_id.replace(/^s\d+_/, "").replace(/_/g, " ")}</div>
                     <div className="scenario-buttons">
-                      {s.compound_run_ids.map((rid) => (
+                      {s.compound_run_ids.map((rid, i) => (
                         <button
                           key={rid}
                           className={rid === selectedRunId ? "run-btn active compound" : "run-btn compound"}
                           onClick={() => handleRun(rid)}
                           disabled={loading}
+                          title={`Compound-risk run ${rid}`}
                         >
-                          compound {rid.slice(0, 6)}
+                          <span className="run-tag">Compound {i + 1}</span>
+                          <span className="run-id">{rid.slice(0, 6)}</span>
+                          {rid === selectedRunId && <ChevronRight size={13} className="run-caret" />}
                         </button>
                       ))}
                       {s.normal_run_ids.map((rid) => (
@@ -141,8 +171,11 @@ export default function App() {
                           className={rid === selectedRunId ? "run-btn active normal" : "run-btn normal"}
                           onClick={() => handleRun(rid)}
                           disabled={loading}
+                          title={`Normal (control) run ${rid}`}
                         >
-                          normal {rid.slice(0, 6)}
+                          <span className="run-tag">Normal</span>
+                          <span className="run-id">{rid.slice(0, 6)}</span>
+                          {rid === selectedRunId && <ChevronRight size={13} className="run-caret" />}
                         </button>
                       ))}
                     </div>
@@ -160,28 +193,42 @@ export default function App() {
                 <LiveMonitoring zones={zones} />
               </motion.div>
             ) : (
-              <motion.div key="map" {...fadeUp}>
-                <div className="plant-map-card">
-                  <PlantMap zones={zones} riskByZone={riskByZone} baselineByZone={baselineByZone} activeZone={activeZone} />
+              <motion.div key="map" {...fadeUp} className={hasResult ? "workspace has-result" : "workspace"}>
+                <div className="workspace-map">
+                  <div className="plant-map-card">
+                    <div className="card-titlebar">
+                      <span className="card-title"><Activity size={13} /> Plant risk map</span>
+                      <PlantLegend />
+                    </div>
+                    <PlantMap zones={zones} riskByZone={riskByZone} baselineByZone={baselineByZone} activeZone={activeZone} />
+                  </div>
+
+                  {mode === "replay" && selectedRunId && (
+                    <Replay runId={selectedRunId} onFrame={handleReplayFrame} />
+                  )}
+
+                  <AnimatePresence>
+                    {loading && (
+                      <motion.div {...fadeUp} className="status-banner loading">
+                        <span className="spinner" />
+                        Running pipeline · compound-risk → permit correlation → orchestrator
+                      </motion.div>
+                    )}
+                    {error && (
+                      <motion.div {...fadeUp} className="status-banner error">{error}</motion.div>
+                    )}
+                    {mode === "single" && !result && !loading && !error && (
+                      <motion.div {...fadeUp} className="empty-state">
+                        <PlayCircle size={22} />
+                        <strong>Select a scenario to run</strong>
+                        <span>Choose a compound or normal trace from the left to score all 7 zones.</span>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                {mode === "replay" && selectedRunId && (
-                  <Replay runId={selectedRunId} onFrame={handleReplayFrame} />
-                )}
-
                 <AnimatePresence>
-                  {loading && (
-                    <motion.div {...fadeUp} className="status-banner loading">
-                      Running pipeline (compound-risk → permit correlation → orchestrator)...
-                    </motion.div>
-                  )}
-                  {error && (
-                    <motion.div {...fadeUp} className="status-banner error">{error}</motion.div>
-                  )}
-                </AnimatePresence>
-
-                <AnimatePresence>
-                  {mode === "single" && result && (
+                  {hasResult && (
                     <motion.div
                       className="result-panel"
                       initial={{ opacity: 0, y: 16 }}
@@ -235,15 +282,15 @@ export default function App() {
 
                       {result.vision_detections && result.vision_detections.length > 0 && (
                         <section>
-                          <h3><Eye size={13} /> CCTV / PPE vision evidence (cached, not live)</h3>
+                          <h3><Eye size={13} /> CCTV / PPE vision evidence <span className="tag-muted">cached</span></h3>
                           {result.vision_detections.map((d, i) => (
                             <div key={i} className="vision-card">
                               {d.image_url && (
                                 <img src={`http://localhost:8000${d.image_url}`} alt={d.frame_id} className="vision-image" />
                               )}
                               <div className="vision-meta">
-                                <div>zone: {d.zone}</div>
-                                <div>detections: {d.detections.join(", ") || "none"}</div>
+                                <div><span className="meta-key">Zone</span> {d.zone}</div>
+                                <div><span className="meta-key">Detections</span> {d.detections.join(", ") || "none"}</div>
                               </div>
                             </div>
                           ))}
@@ -252,10 +299,10 @@ export default function App() {
 
                       {result.incident_report && (
                         <section>
-                          <h3><Quote size={13} /> Generated incident report (local LLM, no cloud API)</h3>
+                          <h3><Quote size={13} /> Generated incident report <span className="tag-muted">local LLM · no cloud</span></h3>
                           <pre className="incident-report">{result.incident_report}</pre>
                           <div className="citations">
-                            <strong>Citations:</strong>
+                            <strong>Citations</strong>
                             <ul>{result.retrieved_citations.map((c, i) => <li key={i}>{c}</li>)}</ul>
                           </div>
                         </section>
@@ -268,6 +315,26 @@ export default function App() {
           </AnimatePresence>
         </main>
       </div>
+    </div>
+  );
+}
+
+const LEGEND = [
+  { label: "Normal", color: "#2fae6e" },
+  { label: "Watch", color: "#fbbf24" },
+  { label: "Alert", color: "#fb923c" },
+  { label: "Critical", color: "#fb5858" },
+];
+
+function PlantLegend() {
+  return (
+    <div className="map-legend">
+      {LEGEND.map((l) => (
+        <span key={l.label} className="legend-item">
+          <span className="legend-swatch" style={{ background: l.color }} />
+          {l.label}
+        </span>
+      ))}
     </div>
   );
 }
