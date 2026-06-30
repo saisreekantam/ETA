@@ -18,6 +18,10 @@ from rag.retriever import retrieve
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "llama3.1:8b"
+# llama3.1:8b doesn't fit fully in 8 GB VRAM alongside the torch CUDA context;
+# offload some layers to CPU so the alloc succeeds (0/None = let Ollama decide
+# on cards with enough VRAM). Tune up if your GPU is larger.
+OLLAMA_NUM_GPU = 20
 
 ESCALATION_BANDS = [(0.9, "emergency"), (0.7, "alert"), (0.5, "monitor"), (0.0, "none")]
 
@@ -31,8 +35,10 @@ def _escalation_for(max_score: float) -> str:
 
 def _call_llm(prompt: str) -> str:
     try:
-        resp = requests.post(OLLAMA_URL, json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
-                              timeout=60)
+        payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
+        if OLLAMA_NUM_GPU:
+            payload["options"] = {"num_gpu": OLLAMA_NUM_GPU}
+        resp = requests.post(OLLAMA_URL, json=payload, timeout=120)
         resp.raise_for_status()
         return resp.json()["response"].strip()
     except requests.exceptions.RequestException as e:
