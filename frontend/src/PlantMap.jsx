@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 
 function riskColor(score) {
-  if (score == null) return "#222b3a";
+  if (score == null) return "var(--zone-null-fill)";
   if (score >= 0.9) return "#d96363";
   if (score >= 0.7) return "#d9824a";
   if (score >= 0.5) return "#d9a441";
@@ -118,7 +118,7 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
               initial={false}
               animate={{
                 fill: riskColor(score),
-                stroke: isActive ? "#ffffff" : "rgba(255,255,255,0.12)",
+                stroke: isActive ? "#ffffff" : "var(--border-strong)",
                 strokeWidth: isActive ? 2.5 : 1.5,
                 opacity: score == null ? 0.5 : 0.92,
                 scale: isActive ? 1.015 : 1,

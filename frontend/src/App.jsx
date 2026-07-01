@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   ShieldAlert, Radio, PlayCircle, Camera, ScrollText, AlertTriangle,
   FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight, RefreshCw, Info,
+  Sun, Moon,
 } from "lucide-react";
 import { API_BASE, getZones, getScenarios, runScenario } from "./api";
 import PlantMap from "./PlantMap";
@@ -43,6 +44,14 @@ export default function App() {
   const [error, setError] = useState(null);
   const [mode, setMode] = useState("single"); // "single" | "replay" | "live"
   const [replayFrame, setReplayFrame] = useState(null);
+  const [theme, setTheme] = useState(() => localStorage.getItem("isi_theme") || "dark");
+
+  // Reflect the theme onto <html data-theme> so the CSS variable overrides apply, and
+  // remember the choice. Dark is the default.
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("isi_theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     getZones().then(setZones);
@@ -132,6 +141,18 @@ export default function App() {
             <span className="status-dot" />
             <Activity size={13} /> System online
           </div>
+          <button
+            className="theme-toggle"
+            role="switch"
+            aria-checked={theme === "light"}
+            aria-label="Toggle light and dark theme"
+            onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+          >
+            <span className="toggle-icons"><Moon size={13} /><Sun size={13} /></span>
+            <span className="toggle-knob">
+              {theme === "light" ? <Sun size={13} /> : <Moon size={13} />}
+            </span>
+          </button>
         </div>
       </motion.header>
 
