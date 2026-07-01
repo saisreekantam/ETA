@@ -666,14 +666,30 @@ body {
   background: var(--bg-panel-raised);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 16px;
+  padding: 16px 18px;
   font-size: 13px;
   line-height: 1.6;
-  white-space: pre-wrap;
   font-family: var(--font-sans);
   color: var(--text-primary);
   margin: 0;
 }
+
+.report-heading {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 16px 0 7px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.report-heading:first-child { margin-top: 0; }
+
+.report-para { margin: 0 0 10px; color: var(--text-secondary); }
+.report-para strong { color: var(--text-primary); font-weight: 700; }
+
+.report-list { margin: 0 0 10px; padding-left: 20px; color: var(--text-secondary); }
+.report-list li { margin-bottom: 4px; line-height: 1.55; }
+.report-list strong { color: var(--text-primary); font-weight: 700; }
 
 .citations { margin-top: 12px; font-size: 12px; color: var(--text-secondary); }
 .citations ul { margin: 6px 0 0; padding-left: 18px; }

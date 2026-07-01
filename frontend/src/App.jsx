@@ -10,6 +10,7 @@ import PlantMap from "./PlantMap";
 import Replay from "./Replay";
 import LiveMonitoring from "./LiveMonitoring";
 import About from "./About";
+import IncidentReport from "./IncidentReport";
 import "./App.css";
 
 const FACILITY_NAME = "Demo Steel & Chemical Plant";
@@ -342,7 +343,7 @@ export default function App() {
                       {result.incident_report && (
                         <section>
                           <h3><Quote size={13} /> Generated incident report <span className="tag-muted">local LLM · no cloud</span></h3>
-                          <pre className="incident-report">{result.incident_report}</pre>
+                          <IncidentReport text={result.incident_report} />
                           <div className="citations">
                             <strong>Citations</strong>
                             <ul>{result.retrieved_citations.map((c, i) => <li key={i}>{c}</li>)}</ul>
