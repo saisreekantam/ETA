@@ -9,7 +9,10 @@ ollama serve &
 SERVER_PID=$!
 
 echo "Waiting for Ollama to come up..."
-until curl -sf http://localhost:11434/api/tags >/dev/null 2>&1; do
+# `ollama list` returns non-zero until the server is accepting connections. Use it as the
+# readiness probe rather than curl -- the ollama base image doesn't ship curl, so a curl
+# probe would loop forever and the model would never be pulled.
+until ollama list >/dev/null 2>&1; do
     sleep 1
 done
 
