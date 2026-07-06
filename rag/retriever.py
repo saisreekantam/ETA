@@ -25,12 +25,18 @@ from db.session import SessionLocal  # noqa: E402
 
 _model = None
 
+# Vendored copy of the embedding model (committed like the GNN checkpoints). Preferring
+# it over the hub name means no HuggingFace download at runtime -- a fresh container
+# previously stalled for minutes downloading this mid-request on restricted networks.
+_LOCAL_MODEL_DIR = REPO_ROOT / "models" / "embedding" / "all-MiniLM-L6-v2"
+
 
 def _lazy_load_model():
     global _model
     if _model is None:
         from sentence_transformers import SentenceTransformer
-        _model = SentenceTransformer("all-MiniLM-L6-v2")
+        source = str(_LOCAL_MODEL_DIR) if _LOCAL_MODEL_DIR.exists() else "all-MiniLM-L6-v2"
+        _model = SentenceTransformer(source)
 
 
 @dataclass

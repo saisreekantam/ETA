@@ -70,3 +70,11 @@ services:
 volumes:
   pgdata:
   ollama:
+
+# Cap the container network MTU below the typical WSL2/VPN tunnel overhead. Without
+# this, large TLS handshake frames to some hosts (e.g. HuggingFace, for the embedding
+# model download) get silently dropped and the connection hangs instead of failing.
+networks:
+  default:
+    driver_opts:
+      com.docker.network.driver.mtu: "1400"
