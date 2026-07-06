@@ -235,3 +235,60 @@ class ApiKey(Base):
     facility_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("facilities.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class Device(Base):
+    """A pluggable input device registered to a facility: a CCTV camera (webcam index,
+    RTSP URL, or demo video file) or an IoT sensor that pushes readings to /iot/readings.
+    status/last_seen/last_error are updated by connection tests and by ingest, so the
+    Devices page can show real health instead of a static list."""
+    __tablename__ = "devices"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    facility_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("facilities.id"))
+    zone_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("zones.id"), nullable=True)
+    name: Mapped[str] = mapped_column(String(200))
+    kind: Mapped[str] = mapped_column(String(20))  # camera | sensor
+    source_type: Mapped[str] = mapped_column(String(20))  # webcam | rtsp | file | push | simulated
+    source: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    metric: Mapped[str | None] = mapped_column(String(100), nullable=True)  # sensors: e.g. gas_ppm
+    unit: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), default="unknown")  # unknown | online | offline
+    last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    zone: Mapped["Zone | None"] = relationship()
+
+
+class SensorReading(Base):
+    """Time-series points pushed by (or simulated for) sensor devices. Kept deliberately
+    narrow -- device/metric/value/time -- so any external device can integrate with a
+    single JSON POST."""
+    __tablename__ = "sensor_readings"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    device_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("devices.id"), index=True)
+    metric: Mapped[str] = mapped_column(String(100))
+    value: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+
+
+class Alert(Base):
+    """An actionable escalation raised by the pipeline (alert/emergency runs). Carries an
+    acknowledgment trail so 'safety officer saw this' is a recorded fact, not an
+    assumption -- the first 10 minutes of response, made auditable."""
+    __tablename__ = "alerts"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    facility_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("facilities.id"))
+    zone_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("zones.id"))
+    run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("runs.id"), nullable=True)
+    external_run_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    level: Mapped[str] = mapped_column(String(20))  # alert | emergency
+    message: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    acknowledged_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    zone: Mapped["Zone"] = relationship()

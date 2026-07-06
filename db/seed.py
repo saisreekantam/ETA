@@ -26,6 +26,7 @@ from db.auth import create_api_key  # noqa: E402
 from db.models import (  # noqa: E402
     ApiKey,
     Base,
+    Device,
     Facility,
     Permit,
     RagChunk,
@@ -74,7 +75,7 @@ def seed():
         db.execute(text("""
             TRUNCATE runs, permits, worker_presence, zone_risk_scores, permit_violations,
                      incident_reports, audit_log, vision_events, vision_sessions, zones,
-                     rag_chunks, rag_documents
+                     rag_chunks, rag_documents, devices, sensor_readings, alerts
             CASCADE
         """))
         db.commit()
@@ -96,6 +97,27 @@ def seed():
             zone_by_key[key] = zone
         db.flush()
         print(f"Seeded facility '{facility.name}' with {len(zone_by_key)} zones.")
+
+        # Demo devices for the Devices page: one file-backed camera (the shipped sample
+        # clip -- a real webcam/RTSP source can be registered from the UI) and three
+        # simulated IoT sensors that the background simulator feeds readings to.
+        demo_devices = [
+            Device(facility_id=facility.id, zone_id=zone_by_key["reactor_zone"].id,
+                   name="Reactor CCTV-01", kind="camera", source_type="file",
+                   source="data/ppe_vision/cached_outputs/sample_demo_clip.mp4"),
+            Device(facility_id=facility.id, zone_id=zone_by_key["reactor_zone"].id,
+                   name="Gas sensor RZ-01", kind="sensor", source_type="simulated",
+                   metric="gas_ppm", unit="ppm"),
+            Device(facility_id=facility.id, zone_id=zone_by_key["separator_zone"].id,
+                   name="Temp sensor SZ-02", kind="sensor", source_type="simulated",
+                   metric="temp_c", unit="°C"),
+            Device(facility_id=facility.id, zone_id=zone_by_key["condenser_zone"].id,
+                   name="Pressure sensor CZ-03", kind="sensor", source_type="simulated",
+                   metric="pressure_kpa", unit="kPa"),
+        ]
+        db.add_all(demo_devices)
+        db.flush()
+        print(f"Seeded {len(demo_devices)} demo devices.")
 
         manifest = pd.read_csv(REPO_ROOT / "data" / "synthetic" / "manifest.csv")
         permits_df = pd.read_parquet(REPO_ROOT / "data" / "permits" / "permits.parquet")

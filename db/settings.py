@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     ollama_num_gpu: int = 20
     api_key_required: bool = False  # flip true once keys are seeded (see db/seed.py)
     cors_origins: str = "*"
+    # Optional outbound notification channel: alert/emergency escalations POST a JSON
+    # payload here (Slack/Teams/incident webhook). Empty = disabled.
+    alert_webhook_url: str = ""
+    # Background thread that generates readings for source_type="simulated" sensors so
+    # the Devices page demos with moving data. Disable for real deployments.
+    iot_simulator: bool = True
 
 
 settings = Settings()
