@@ -30,11 +30,17 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from agents.graph import build_pipeline  # noqa: E402
 from db.auth import verify_api_key  # noqa: E402
-from db.models import AuditLogEntry, Facility, IncidentReport, PermitViolation, Run, Zone, ZoneRiskScore  # noqa: E402
+from db.models import Alert, AuditLogEntry, Facility, IncidentReport, PermitViolation, Run, Zone, ZoneRiskScore  # noqa: E402
 from db.session import SessionLocal, get_db  # noqa: E402
 from db.settings import settings  # noqa: E402
 from scripts.demo_scenario_runner import load_state_for_run  # noqa: E402
 from scripts.replay import compute_replay_trace  # noqa: E402
+from server.alerts import fire_webhook  # noqa: E402
+from server.alerts import router as alerts_router  # noqa: E402
+from server.benchmarks import router as benchmarks_router  # noqa: E402
+from server.devices import router as devices_router  # noqa: E402
+from server.devices import start_simulator  # noqa: E402
+from server.live import router as live_router  # noqa: E402
 from vision.live_inference import create_session, get_session, stop_session  # noqa: E402
 
 UPLOAD_DIR = REPO_ROOT / "data" / "vision_uploads"
@@ -67,6 +73,16 @@ app = FastAPI(title="Industrial Safety Intelligence API", dependencies=[Depends(
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.mount("/static/ppe_vision", StaticFiles(directory=str(REPO_ROOT / "data" / "ppe_vision" / "cached_outputs")),
           name="ppe_vision_static")
+app.include_router(devices_router)
+app.include_router(live_router)
+app.include_router(benchmarks_router)
+app.include_router(alerts_router)
+
+
+@app.on_event("startup")
+def _start_background_tasks():
+    if settings.iot_simulator:
+        start_simulator()
 
 _pipeline = None
 
@@ -230,6 +246,20 @@ def run_scenario(run_id: str, force: bool = False, facility_id: str | None = Non
     for entry in final_state["audit_log"]:
         db.add(AuditLogEntry(facility_id=fid, run_id=run_row.id if run_row else None,
                               node_name=entry.split(":")[0], message=entry))
+    # Alert/emergency escalations become inbox items with an acknowledgment trail (and an
+    # optional outbound webhook) -- detection that nobody sees is the exact failure mode
+    # this system exists to close.
+    if final_state["escalation_level"] in ("alert", "emergency"):
+        top_zone_key = max(final_state["zone_risk_scores"], key=lambda s: s["compound_risk_score"])["zone"]
+        zone = zone_by_key.get(top_zone_key)
+        if zone:
+            top_score = max(s["compound_risk_score"] for s in final_state["zone_risk_scores"])
+            message = (f"{final_state['escalation_level'].upper()} in {zone.label}: compound risk "
+                       f"{top_score:.2f}, {len(final_state['permit_violations'])} permit violation(s)")
+            db.add(Alert(facility_id=fid, zone_id=zone.id, run_id=run_row.id if run_row else None,
+                         external_run_id=run_id, level=final_state["escalation_level"], message=message))
+            fire_webhook({"level": final_state["escalation_level"], "zone": top_zone_key,
+                          "run_id": run_id, "message": message})
     db.commit()
 
     return {
