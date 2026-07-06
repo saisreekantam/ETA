@@ -40,3 +40,71 @@ export async function getReplay(runId, step = 4) {
   if (!res.ok) throw new Error(`Replay failed: ${res.status}${res.status === 401 ? " (check API key)" : ""}`);
   return res.json();
 }
+
+// --- devices / IoT ---------------------------------------------------------------
+
+export async function getDevices() {
+  const res = await apiFetch("/devices");
+  if (!res.ok) throw new Error(`Devices failed: ${res.status}`);
+  return res.json();
+}
+
+export async function createDevice(body) {
+  const res = await apiFetch("/devices", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json()).detail || `Create failed: ${res.status}`);
+  return res.json();
+}
+
+export async function deleteDevice(id) {
+  const res = await apiFetch(`/devices/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+  return res.json();
+}
+
+export async function testDevice(id) {
+  const res = await apiFetch(`/devices/${id}/test`, { method: "POST" });
+  if (!res.ok) throw new Error(`Test failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getDeviceReadings(id, limit = 40) {
+  const res = await apiFetch(`/devices/${id}/readings?limit=${limit}`);
+  if (!res.ok) throw new Error(`Readings failed: ${res.status}`);
+  return res.json();
+}
+
+// --- live / benchmarks / alerts ----------------------------------------------------
+
+/** EventSource can't set headers, so the key rides as a query param (same pattern as
+ * the MJPEG stream). */
+export function liveStreamUrl(runId, interval = 1.2) {
+  const key = encodeURIComponent(getApiKey());
+  return `${API_BASE}/live/risk-stream?run_id=${runId}&interval=${interval}&api_key=${key}`;
+}
+
+export async function getBenchmarks() {
+  const res = await apiFetch("/benchmarks");
+  if (!res.ok) throw new Error(`Benchmarks failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getAlerts({ unackedOnly = false } = {}) {
+  const res = await apiFetch(`/alerts${unackedOnly ? "?unacked_only=true" : ""}`);
+  if (!res.ok) throw new Error(`Alerts failed: ${res.status}`);
+  return res.json();
+}
+
+export async function ackAlert(id, name) {
+  const res = await apiFetch(`/alerts/${id}/ack`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ acknowledged_by: name }),
+  });
+  if (!res.ok) throw new Error(`Ack failed: ${res.status}`);
+  return res.json();
+}
+
+export function evidenceUrl(runId) {
+  return `${API_BASE}/runs/${runId}/evidence?api_key=${encodeURIComponent(getApiKey())}`;
+}

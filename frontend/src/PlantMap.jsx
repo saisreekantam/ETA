@@ -1,17 +1,35 @@
 import { motion } from "motion/react";
 
+// Continuous risk gradient (green -> amber -> orange -> red) instead of hard bands, so
+// two zones at 0.55 and 0.68 read as different, not identical "medium" boxes. The
+// legend's band labels still describe the same anchor points.
+const RISK_STOPS = [
+  [0.0, [63, 143, 114]],   // #3f8f72 normal
+  [0.5, [217, 164, 65]],   // #d9a441 watch
+  [0.7, [217, 130, 74]],   // #d9824a alert
+  [0.9, [217, 99, 99]],    // #d96363 critical
+  [1.0, [217, 99, 99]],
+];
+
 function riskColor(score) {
   if (score == null) return "var(--zone-null-fill)";
-  if (score >= 0.9) return "#d96363";
-  if (score >= 0.7) return "#d9824a";
-  if (score >= 0.5) return "#d9a441";
-  return "#3f8f72";
+  const s = Math.max(0, Math.min(1, score));
+  for (let i = 1; i < RISK_STOPS.length; i++) {
+    const [t1, c1] = RISK_STOPS[i - 1];
+    const [t2, c2] = RISK_STOPS[i];
+    if (s <= t2) {
+      const f = (s - t1) / (t2 - t1 || 1);
+      const rgb = c1.map((c, k) => Math.round(c + (c2[k] - c) * f));
+      return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+    }
+  }
+  return "rgb(217, 99, 99)";
 }
 
 function glowFilter(score) {
   if (score == null || score < 0.5) return "none";
   const color = riskColor(score);
-  return `drop-shadow(0 0 ${6 + score * 14}px ${color}99)`;
+  return `drop-shadow(0 0 ${6 + score * 14}px ${color})`;
 }
 
 // Fixed schematic layout (overrides the DB's demo coordinates) so the map reads as an
@@ -77,7 +95,9 @@ function orthPath(a, b) {
   return `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
 }
 
-export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone }) {
+const PERMIT_SHORT = { hot_work: "HOT WORK", confined_space: "CONFINED", electrical: "ELECTRICAL", general: "GENERAL" };
+
+export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone, permits, workerPresence }) {
   if (!zones) {
     return (
       <div style={{ height: 360, display: "flex", alignItems: "center", justifyContent: "center", color: "#565f73", fontSize: 13 }}>
@@ -88,8 +108,29 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
   const width = 860;
   const height = 360;
 
+  // Active permits and on-shift workers per zone -- the "permit overlaps + worker
+  // location" situational-awareness layer over the risk heat.
+  const activePermitByZone = {};
+  for (const p of permits || []) {
+    if (p.status === "active" && !activePermitByZone[p.zone]) activePermitByZone[p.zone] = p;
+  }
+  const workersByZone = {};
+  for (const w of workerPresence || []) {
+    // Benchmark records carry has_presence over a run window; live records would have a
+    // null exit_time while the worker is still inside. Either counts as "in the zone".
+    const present = w.has_presence != null ? w.has_presence : !w.exit_time;
+    if (present) workersByZone[w.zone] = (workersByZone[w.zone] || 0) + 1;
+  }
+
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="plant-map" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <pattern id="permit-hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+          <rect width="7" height="7" fill="none" />
+          <line x1="0" y1="0" x2="0" y2="7" stroke="rgba(255,255,255,0.35)" strokeWidth="1.6" />
+        </pattern>
+      </defs>
+
       <g className="pipes">
         {PIPES.map(([a, b]) => {
           const za = LAYOUT[a], zb = LAYOUT[b];
@@ -105,6 +146,8 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
         const baseline = baselineByZone[zoneId];
         const isActive = zoneId === activeZone;
         const isCritical = isActive && score >= 0.9;
+        const permit = activePermitByZone[zoneId];
+        const workers = workersByZone[zoneId] || 0;
 
         return (
           <motion.g
@@ -126,6 +169,10 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
               style={{ transformOrigin: `${z.x + z.w / 2}px ${z.y + z.h / 2}px` }}
               transition={{ duration: 0.6, ease: "easeOut" }}
             />
+            {permit && score != null && (
+              <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={12}
+                    fill="url(#permit-hatch)" pointerEvents="none" />
+            )}
             {isCritical && (
               <motion.rect
                 x={z.x} y={z.y} width={z.w} height={z.h}
@@ -137,6 +184,15 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
                 style={{ transformOrigin: `${z.x + z.w / 2}px ${z.y + z.h / 2}px` }}
                 transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
               />
+            )}
+            {permit && score != null && (
+              <g>
+                <rect x={z.x + 6} y={z.y + 6} rx={4} width={PERMIT_SHORT[permit.permit_type].length * 5.4 + 12} height={14}
+                      fill="rgba(8,11,17,0.55)" />
+                <text x={z.x + 12} y={z.y + 16.5} className="zone-permit-tag">
+                  {PERMIT_SHORT[permit.permit_type]}
+                </text>
+              </g>
             )}
             <text x={z.x + z.w / 2} y={z.y + z.h / 2 - (score != null ? 8 : 0)} textAnchor="middle" className="zone-label">
               {label}
@@ -152,6 +208,20 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
                   </text>
                 )}
               </>
+            )}
+            {workers > 0 && score != null && (
+              <g>
+                {Array.from({ length: Math.min(workers, 5) }).map((_, i) => (
+                  <circle key={i} cx={z.x + z.w - 12 - i * 11} cy={z.y + z.h - 11} r={4}
+                          className="zone-worker-dot" />
+                ))}
+                {workers > 5 && (
+                  <text x={z.x + z.w - 12 - 5 * 11 - 4} y={z.y + z.h - 8} textAnchor="end" className="zone-worker-count">
+                    +{workers - 5}
+                  </text>
+                )}
+                <title>{`${workers} worker(s) present`}</title>
+              </g>
             )}
           </motion.g>
         );

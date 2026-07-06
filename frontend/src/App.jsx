@@ -3,13 +3,15 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   ShieldAlert, Radio, PlayCircle, Camera, ScrollText, AlertTriangle,
   FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight, RefreshCw, Info,
-  Sun, Moon,
+  Sun, Moon, HardDrive, BarChart3, Bell, LogOut, FileDown, Rss, Square,
 } from "lucide-react";
-import { API_BASE, getZones, getScenarios, runScenario } from "./api";
+import { API_BASE, ackAlert, evidenceUrl, getAlerts, getZones, getScenarios, liveStreamUrl, runScenario, setApiKey } from "./api";
 import PlantMap from "./PlantMap";
 import Replay from "./Replay";
 import LiveMonitoring from "./LiveMonitoring";
 import About from "./About";
+import Devices from "./Devices";
+import Evaluation from "./Evaluation";
 import IncidentReport from "./IncidentReport";
 import "./App.css";
 
@@ -26,6 +28,8 @@ const MODES = [
   { key: "single", label: "Single run", icon: PlayCircle },
   { key: "replay", label: "Time replay", icon: Radio },
   { key: "live", label: "Live CCTV", icon: Camera },
+  { key: "devices", label: "Devices", icon: HardDrive },
+  { key: "evaluation", label: "Evaluation", icon: BarChart3 },
   { key: "about", label: "About", icon: Info },
 ];
 
@@ -43,9 +47,13 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [mode, setMode] = useState("single"); // "single" | "replay" | "live"
+  const [mode, setMode] = useState("single"); // "single" | "replay" | "live" | "devices" | "evaluation" | "about"
   const [replayFrame, setReplayFrame] = useState(null);
   const [theme, setTheme] = useState(() => localStorage.getItem("isi_theme") || "dark");
+  const [liveOn, setLiveOn] = useState(false);
+  const [liveFrame, setLiveFrame] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [alertsOpen, setAlertsOpen] = useState(false);
 
   // Reflect the theme onto <html data-theme> so the CSS variable overrides apply, and
   // remember the choice. Dark is the default.
@@ -61,6 +69,33 @@ export default function App() {
       if (s.length) setSelectedRunId(s[0].compound_run_ids[0]);
     });
   }, []);
+
+  // Alert inbox: poll for unacknowledged escalations so the bell reflects reality even
+  // if the run that raised them happened in another tab/session.
+  useEffect(() => {
+    const load = () => getAlerts({ unackedOnly: true }).then(setAlerts).catch(() => {});
+    load();
+    const t = setInterval(load, 20000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Live plant mode: a server-paced SSE stream re-plays the selected run's sensor trace
+  // through the same GNN scoring path, so the map moves on its own like a wallboard.
+  useEffect(() => {
+    if (!liveOn || !selectedRunId) return;
+    const es = new EventSource(liveStreamUrl(selectedRunId));
+    es.onmessage = (e) => setLiveFrame(JSON.parse(e.data));
+    es.onerror = () => { es.close(); setLiveOn(false); };
+    return () => { es.close(); setLiveFrame(null); };
+  }, [liveOn, selectedRunId]);
+
+  async function handleAck(alert) {
+    const name = localStorage.getItem("isi_officer") || window.prompt("Acknowledge as (your name):", "Safety Officer");
+    if (!name) return;
+    localStorage.setItem("isi_officer", name);
+    await ackAlert(alert.id, name).catch(() => {});
+    setAlerts((a) => a.filter((x) => x.id !== alert.id));
+  }
 
   async function handleRun(runId, { force = false } = {}) {
     setSelectedRunId(runId);
@@ -85,18 +120,27 @@ export default function App() {
   const baselineByZone = {};
   let activeZone = null;
 
-  if (mode === "replay" && replayFrame) {
+  if (mode === "single" && liveOn && liveFrame) {
+    for (const [zone, v] of Object.entries(liveFrame.zones)) {
+      riskByZone[zone] = v.gnn;
+      baselineByZone[zone] = v.baseline_alert ? 1.0 : 0.0;
+    }
+    const top = Object.entries(liveFrame.zones).sort((a, b) => b[1].gnn - a[1].gnn)[0];
+    if (top && top[1].gnn >= 0.5) activeZone = top[0];
+  } else if (mode === "replay" && replayFrame) {
     for (const [zone, v] of Object.entries(replayFrame.zones)) {
       riskByZone[zone] = v.gnn;
       baselineByZone[zone] = v.baselineAlert ? 1.0 : 0.0;
     }
     activeZone = replayFrame.trueZone;
   } else if (mode === "single" && result) {
+    let top = null;
     for (const z of result.zone_risk_scores) {
       riskByZone[z.zone] = z.compound_risk_score;
       baselineByZone[z.zone] = z.baseline_risk_score;
-      activeZone = z.zone;
+      if (!top || z.compound_risk_score > top.compound_risk_score) top = z;
     }
+    activeZone = top ? top.zone : null;
   }
 
   const hasResult = mode === "single" && result;
@@ -124,6 +168,7 @@ export default function App() {
               className={mode === key ? "mode-btn active" : "mode-btn"}
               onClick={() => {
                 setMode(key);
+                setLiveOn(false);
                 if (key !== "single") setResult(null);
                 if (key !== "replay") setReplayFrame(null);
               }}
@@ -142,6 +187,47 @@ export default function App() {
             <span className="status-dot" />
             <Activity size={13} /> System online
           </div>
+          <div className="alert-bell-wrap">
+            <button
+              className={alerts.length ? "icon-btn alert-bell has-alerts" : "icon-btn alert-bell"}
+              onClick={() => setAlertsOpen((v) => !v)}
+              aria-label={`${alerts.length} unacknowledged alerts`}
+              title="Alert inbox"
+            >
+              <Bell size={16} />
+              {alerts.length > 0 && <span className="alert-count">{alerts.length}</span>}
+            </button>
+            <AnimatePresence>
+              {alertsOpen && (
+                <motion.div
+                  className="alert-dropdown"
+                  initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <div className="alert-dropdown-head">Unacknowledged alerts</div>
+                  {alerts.length === 0 && <div className="alert-empty">All clear — nothing awaiting acknowledgment.</div>}
+                  {alerts.map((a) => (
+                    <div key={a.id} className={`alert-item level-${a.level}`}>
+                      <div className="alert-item-body">
+                        <span className="alert-item-level">{a.level}</span>
+                        <span className="alert-item-msg">{a.message}</span>
+                        <span className="alert-item-time">{new Date(a.created_at).toLocaleString()}</span>
+                      </div>
+                      <button className="rerun-btn" onClick={() => handleAck(a)}>Acknowledge</button>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <button
+            className="icon-btn"
+            onClick={() => { setApiKey(""); window.location.reload(); }}
+            aria-label="Sign out"
+            title="Sign out (clear API key)"
+          >
+            <LogOut size={15} />
+          </button>
           <button
             className="theme-toggle"
             role="switch"
@@ -218,6 +304,14 @@ export default function App() {
               <motion.div key="about" {...fadeUp}>
                 <About />
               </motion.div>
+            ) : mode === "devices" ? (
+              <motion.div key="devices" {...fadeUp}>
+                <Devices zones={zones} />
+              </motion.div>
+            ) : mode === "evaluation" ? (
+              <motion.div key="evaluation" {...fadeUp}>
+                <Evaluation />
+              </motion.div>
             ) : mode === "live" ? (
               <motion.div key="live" {...fadeUp}>
                 <LiveMonitoring zones={zones} />
@@ -228,9 +322,32 @@ export default function App() {
                   <div className="plant-map-card">
                     <div className="card-titlebar">
                       <span className="card-title"><Activity size={13} /> Plant risk map</span>
-                      <PlantLegend />
+                      <div className="titlebar-right">
+                        {mode === "single" && liveOn && liveFrame && (
+                          <span className="live-progress">
+                            t={liveFrame.t}{liveFrame.onset != null && ` · onset ${liveFrame.onset}`}
+                            {liveFrame.onset_reached && <span className="onset-reached"> · past onset</span>}
+                          </span>
+                        )}
+                        {mode === "single" && (
+                          <button
+                            className={liveOn ? "live-toggle on" : "live-toggle"}
+                            onClick={() => { setResult(null); setLiveOn((v) => !v); }}
+                            disabled={!selectedRunId}
+                            title={liveOn ? "Stop the live stream" : "Stream this run's sensor trace through the GNN continuously"}
+                          >
+                            {liveOn ? <Square size={11} /> : <Rss size={12} />}
+                            {liveOn ? "Stop" : "Go live"}
+                          </button>
+                        )}
+                        <PlantLegend />
+                      </div>
                     </div>
-                    <PlantMap zones={zones} riskByZone={riskByZone} baselineByZone={baselineByZone} activeZone={activeZone} />
+                    <PlantMap
+                      zones={zones} riskByZone={riskByZone} baselineByZone={baselineByZone} activeZone={activeZone}
+                      permits={mode === "single" && result ? result.permits : null}
+                      workerPresence={mode === "single" && result ? result.worker_presence : null}
+                    />
                   </div>
 
                   {mode === "replay" && selectedRunId && (
@@ -278,6 +395,13 @@ export default function App() {
                         </motion.div>
                         <div className="result-panel-actions">
                           {result.cached && <span className="cached-pill" title="Loaded from a previous run, not recomputed">Cached</span>}
+                          <button
+                            className="rerun-btn"
+                            onClick={() => window.open(evidenceUrl(result.run_id), "_blank")}
+                            title="Open the printable evidence bundle (report, citations, CCTV frame, audit trail)"
+                          >
+                            <FileDown size={13} /> Evidence
+                          </button>
                           <button
                             className="rerun-btn"
                             onClick={() => handleRun(result.run_id, { force: true })}
