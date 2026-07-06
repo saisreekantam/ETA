@@ -55,6 +55,11 @@ services:
       CORS_ORIGINS: "*"
     ports:
       - "8000:8000"
+    # To register a host webcam by device index, pass it through (native Linux only --
+    # WSL2 can't see USB webcams without usbipd + a UVC kernel; use an RTSP/HTTP
+    # stream instead, e.g. a phone IP-camera app or mediamtx on the Windows side):
+    # devices:
+    #   - /dev/video0:/dev/video0
 
   frontend:
     build:

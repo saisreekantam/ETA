@@ -231,14 +231,14 @@ export default function Devices({ zones }) {
             <div className="device-form-row">
               <label>Source type
                 <select value={form.source_type} onChange={(e) => set("source_type", e.target.value)}>
-                  <option value="webcam">Webcam (device index)</option>
-                  <option value="rtsp">RTSP stream</option>
+                  <option value="rtsp">Stream URL (RTSP / HTTP / IP-cam)</option>
+                  <option value="webcam">Webcam (device index — needs /dev/video* in the backend container)</option>
                   <option value="file">Video file (demo)</option>
                 </select>
               </label>
               <label className="grow">Source
                 <input value={form.source} onChange={(e) => set("source", e.target.value)}
-                       placeholder={form.source_type === "webcam" ? "0" : form.source_type === "rtsp" ? "rtsp://user:pass@10.0.0.5:554/stream" : "data/…/clip.mp4"} />
+                       placeholder={form.source_type === "webcam" ? "0" : form.source_type === "rtsp" ? "rtsp://10.0.0.5:554/stream or http://192.168.1.20:8080/video" : "data/…/clip.mp4"} />
               </label>
             </div>
           ) : (
