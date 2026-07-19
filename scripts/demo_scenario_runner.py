@@ -14,6 +14,7 @@ Run directly: `python -m scripts.demo_scenario_runner [run_id]`
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import uuid
@@ -44,10 +45,15 @@ def _load_vision_detections(run_id: str, zone: str, is_compound: bool, has_activ
     if not manifest_path.exists():
         return []
     cache = json.loads(manifest_path.read_text())
-    tag = "violation_0" if is_compound else "compliant_0"
-    entry = cache.get(tag)
-    if entry is None:
+    # several frames are baked per role (violation_0..4 / compliant_0..2) -- pick one
+    # deterministically per run_id so repeated demos of the same run always show the
+    # same frame, but different runs show different sites/worker counts.
+    prefix = "violation" if is_compound else "compliant"
+    tags = sorted(t for t in cache if t.startswith(prefix))
+    if not tags:
         return []
+    tag = tags[int(hashlib.md5(run_id.encode()).hexdigest(), 16) % len(tags)]
+    entry = cache[tag]
 
     detections = [{
         "frame_id": tag,
@@ -103,6 +109,7 @@ def load_state_for_run(run_id: str) -> dict:
         }] if presence else [],
         "vision_detections": vision_detections,
         "zone_risk_scores": [],
+        "flow_attention": [],
         "permit_violations": [],
         "retrieved_citations": [],
         "incident_report": None,

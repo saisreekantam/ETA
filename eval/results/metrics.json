@@ -4,9 +4,9 @@
     "n_compound_positive": 30,
     "note": "scored at each run's true hazard zone (run-level, not pooled across all 7 zones)",
     "gnn": {
-      "precision": 0.909,
+      "precision": 1.0,
       "recall": 1.0,
-      "f1": 0.952
+      "f1": 1.0
     },
     "baseline_single_sensor": {
       "precision": 0.37,
@@ -20,19 +20,19 @@
         "target_fpr": 0.05,
         "achieved_fpr": 0.056,
         "fnr": 0.0,
-        "threshold": 0.0646
+        "threshold": 0.4197
       },
       {
         "target_fpr": 0.1,
         "achieved_fpr": 0.111,
         "fnr": 0.0,
-        "threshold": 0.033
+        "threshold": 0.3457
       },
       {
         "target_fpr": 0.2,
         "achieved_fpr": 0.211,
         "fnr": 0.0,
-        "threshold": 0.0
+        "threshold": 0.0016
       }
     ],
     "baseline_single_sensor": [
@@ -66,9 +66,9 @@
     "n_runs_evaluated": 30,
     "gnn": {
       "n": 30,
-      "median_samples": 6.0,
+      "median_samples": 0.0,
       "p10_samples": 0.0,
-      "median_minutes": 18.0,
+      "median_minutes": 0.0,
       "p10_minutes": 0.0
     },
     "baseline_single_sensor": {
@@ -78,6 +78,6 @@
       "median_minutes": 0.0,
       "p10_minutes": -9.0
     },
-    "note": "negative = detected before/at ground-truth onset (anticipatory); positive = detected N samples (3 min each) after onset; both measured at the run's true hazard zone"
+    "note": "negative = detected before/at ground-truth onset (anticipatory); positive = detected N samples (3 min each) after onset; both measured at the run's true hazard zone. NOT a headline metric: with permit/presence visibility properly time-gated (no future-leak), the GNN does not detect earlier than the baseline on this benchmark -- training data was not time-gated, so the model learned 'permit visible => compound' and correctly waits for the permit to actually appear before committing. The model's real advantages are precision/zone-localization, not lead time -- see accuracy_vs_baseline and zone_localization above."
   }
 }

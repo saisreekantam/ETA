@@ -32,7 +32,19 @@ class ZoneRiskScore(TypedDict):
     compound_risk_score: float  # 0-1, from the GNN
     baseline_risk_score: float  # 0-1, from the naive single-sensor threshold model
     contributing_sensors: list[str]
+    # [{"sensor": "XMEAS(7)", "saliency": 0.83}, ...] -- same ranking as
+    # contributing_sensors but with the gradient magnitudes, normalized so the top
+    # sensor is 1.0, for the frontend's explainability bar chart
+    sensor_saliency: list[dict]
     contributing_faults: list[str] | None  # only populated on synthetic/eval runs
+
+
+class FlowAttention(TypedDict):
+    """GATv2 attention on one zone->zone process-flow edge -- 'how hard dst is
+    listening to src' -- for the dashboard's risk-propagation pipe animation."""
+    src: str
+    dst: str
+    attention: float
 
 
 class PermitViolation(TypedDict):
@@ -68,6 +80,7 @@ class PipelineState(TypedDict):
 
     # produced by compound_risk_node
     zone_risk_scores: list[ZoneRiskScore]
+    flow_attention: list[FlowAttention]  # zone->zone edge attention for the map pipes
 
     # produced by permit_correlation_node
     permit_violations: list[PermitViolation]

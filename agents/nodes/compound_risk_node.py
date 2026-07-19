@@ -55,6 +55,10 @@ def _build_normalized_graph(sensor_df: pd.DataFrame, permit: dict, presence: dic
     })
     presence_features = pd.Series({
         "has_presence": bool(presence.get("has_presence", presence.get("entry_time") is not None)),
+        # dwell timestamps feed the graph's worker node -- graph_builder derives the
+        # same dwell_frac from these that training derived from sample indices
+        "entry_time": presence.get("entry_time"),
+        "exit_time": presence.get("exit_time"),
     })
     graph = build_graph(sensor_df, permit_features, presence_features, permit_zone)
     for ntype, (mean, std) in _norm_stats.items():
@@ -89,18 +93,23 @@ def compound_risk_node(state: PipelineState) -> dict:
     zone_risk_scores = []
     for i, zone in enumerate(ZONE_VOCAB):
         explanation = explain_zone(_model, graph, zone) if zone != "control_room" else {
-            "contributing_sensors": [], "permit_saliency": 0.0, "presence_saliency": 0.0,
+            "contributing_sensors": [], "sensor_saliency": [],
+            "permit_saliency": 0.0, "presence_saliency": 0.0,
         }
         zone_risk_scores.append(ZoneRiskScore(
             zone=zone,
             compound_risk_score=round(probs[i], 4),
             baseline_risk_score=round(baseline_scores.get(zone, 0.0), 4),
             contributing_sensors=explanation["contributing_sensors"],
+            sensor_saliency=explanation["sensor_saliency"],
             contributing_faults=None,
         ))
+
+    flow_attention = _model.flow_attention(graph)
 
     top = max(zone_risk_scores, key=lambda s: s["compound_risk_score"])
     audit_entry = (f"compound_risk_node: top_zone={top['zone']} gnn_score={top['compound_risk_score']} "
                     f"baseline_score={top['baseline_risk_score']} "
                     f"(scored all {len(zone_risk_scores)} zones)")
-    return {"zone_risk_scores": zone_risk_scores, "audit_log": state["audit_log"] + [audit_entry]}
+    return {"zone_risk_scores": zone_risk_scores, "flow_attention": flow_attention,
+            "audit_log": state["audit_log"] + [audit_entry]}

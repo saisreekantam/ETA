@@ -24,7 +24,7 @@ from sklearn.model_selection import train_test_split
 from torch_geometric.loader import DataLoader
 
 from models.gnn.graph_builder import ZONE_VOCAB, load_all_graphs
-from models.gnn.model import CompoundRiskGNN
+from models.gnn.model import NODE_TYPES, CompoundRiskGNN
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SEED = 0
@@ -57,17 +57,20 @@ def main():
     # z-score normalize each node type's features using TRAIN-split statistics only,
     # then apply to all splits -- raw sensor scales span ~0 to ~4500, which otherwise
     # stalls GATv2Conv training (verified: loss plateaus at the prior-class entropy).
-    node_types = ["sensor_cluster", "permit", "presence", "zone"]
+    # sensor_cluster is now a 3D [n_nodes, WINDOW, channels] sequence tensor: normalize
+    # per channel (stats over nodes AND timesteps) so the same (mean, std) broadcasts
+    # in the shared `(x - mean) / std` consumers use downstream.
     stats = {}
-    for ntype in node_types:
+    for ntype in NODE_TYPES:
         all_x = torch.cat([g[ntype].x for g in train_graphs])
-        mean = all_x.mean(dim=0)
-        std = all_x.std(dim=0)
+        dims = (0, 1) if all_x.dim() == 3 else 0
+        mean = all_x.mean(dim=dims)
+        std = all_x.std(dim=dims)
         std[std < 1e-6] = 1.0
         stats[ntype] = (mean, std)
 
     for g in graphs:
-        for ntype in node_types:
+        for ntype in NODE_TYPES:
             mean, std = stats[ntype]
             g[ntype].x = (g[ntype].x - mean) / std
 
