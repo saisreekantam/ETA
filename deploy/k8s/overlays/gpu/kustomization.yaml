@@ -1,0 +1,27 @@
+# GPU overlay: schedules ollama + backend onto NVIDIA nodes (device plugin required).
+# The LLM runs fully on-GPU (OLLAMA_NUM_GPU=999) and the backend gets a GPU for
+# RT-DETR video inference. Apply with: kubectl apply -k deploy/k8s/overlays/gpu
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - target:
+      kind: Deployment
+      name: ollama
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources/limits/nvidia.com~1gpu
+        value: 1
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources/limits/nvidia.com~1gpu
+        value: 1
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: OLLAMA_NUM_GPU
+            value: "999"

@@ -1,0 +1,87 @@
+# CI/CD: sanity-check the code, build+push both images to GHCR, then (only if a cluster
+# credential is configured) roll the Kubernetes deployment. Deploy is a no-op on forks
+# and PRs -- images build everywhere, only main with KUBE_CONFIG_B64 set actually ships.
+name: build-and-deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/eta-backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/eta-frontend
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Fast structural checks -- the full torch/PyG stack is too heavy to install per
+      # CI run; compileall catches syntax/import-shape breakage cheaply.
+      - run: python -m compileall -q server agents models rag db simulator vision eval scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: cd frontend && npm ci && npx vite build
+
+  build-images:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          build-args: |
+            VITE_API_BASE=/api
+          push: ${{ github.event_name == 'push' }}
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+
+  deploy:
+    needs: build-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure cluster access
+        id: kubeconfig
+        run: |
+          if [ -n "${{ secrets.KUBE_CONFIG_B64 }}" ]; then
+            echo "${{ secrets.KUBE_CONFIG_B64 }}" | base64 -d > "$RUNNER_TEMP/kubeconfig"
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No KUBE_CONFIG_B64 secret -- skipping cluster deploy (images are pushed)."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Roll deployment
+        if: steps.kubeconfig.outputs.configured == 'true'
+        env:
+          KUBECONFIG: ${{ runner.temp }}/kubeconfig
+        run: |
+          kubectl apply -k deploy/k8s/base
+          kubectl -n industrial-safety set image deployment/backend backend=${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          kubectl -n industrial-safety set image deployment/frontend frontend=${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          kubectl -n industrial-safety rollout status deployment/backend --timeout=10m
+          kubectl -n industrial-safety rollout status deployment/frontend --timeout=5m

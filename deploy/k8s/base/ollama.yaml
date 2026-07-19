@@ -1,0 +1,96 @@
+# Local LLM (incident reports + operator copilot). Same entrypoint contract as
+# docker-compose: start the server, pull the model into the PVC once. The generous
+# startupProbe budget covers the first-run ~5GB model pull.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ollama-entrypoint
+  namespace: industrial-safety
+data:
+  entrypoint.sh: |
+    #!/usr/bin/env bash
+    set -e
+    MODEL="${OLLAMA_MODEL:-llama3.1:8b}"
+    ollama serve &
+    SERVER_PID=$!
+    until ollama list >/dev/null 2>&1; do sleep 1; done
+    if ! ollama list | grep -q "${MODEL%%:*}"; then
+      echo "Pulling ${MODEL} (first run only)..."
+      ollama pull "${MODEL}"
+    fi
+    echo "Ollama ready."
+    wait $SERVER_PID
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models
+  namespace: industrial-safety
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: industrial-safety
+spec:
+  selector:
+    app: ollama
+  ports:
+    - port: 11434
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: industrial-safety
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate            # single RWO volume -- never two pods on it
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          command: ["/bin/bash", "/entrypoint/entrypoint.sh"]
+          env:
+            - name: OLLAMA_MODEL
+              value: "llama3.1:8b"
+          ports:
+            - containerPort: 11434
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+            - name: entrypoint
+              mountPath: /entrypoint
+          startupProbe:
+            exec:
+              command: ["ollama", "list"]
+            periodSeconds: 10
+            failureThreshold: 90   # up to 15 min for the first-run model pull
+          readinessProbe:
+            exec:
+              command: ["ollama", "list"]
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "1", memory: 6Gi }
+            limits: { memory: 12Gi }
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: ollama-models
+        - name: entrypoint
+          configMap:
+            name: ollama-entrypoint
+            defaultMode: 0755

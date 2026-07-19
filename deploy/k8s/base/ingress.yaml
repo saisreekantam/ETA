@@ -1,0 +1,33 @@
+# Single-host ingress (ingress-nginx): the dashboard at /, the API under /api/ with the
+# prefix stripped (backend routes are unprefixed). Build the frontend image with
+# VITE_API_BASE=/api for cluster deploys so browser calls flow through this ingress
+# instead of a hardcoded localhost port.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: industrial-safety
+  namespace: industrial-safety
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m   # video uploads for CCTV analysis
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"  # SSE risk stream + LLM calls
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: safety.local          # set your real host per environment
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /()(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

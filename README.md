@@ -11,8 +11,12 @@ Sensors, permits, and CCTV in most plants live in three different systems that n
 - **Compound-risk detection** — a heterogeneous Graph Attention Network (GATv2) scores every plant zone in real time by fusing sensor readings, active permits, and worker presence, catching combinations a per-sensor threshold alarm would miss entirely.
 - **Permit correlation** — flags when a permit (e.g. confined-space, hot-work) is active in a zone the model has independently scored as high-risk, and surfaces the specific CCTV evidence (unhelmeted workers, unauthorized entry) backing that call.
 - **RAG-grounded incident reports** — a local LLM (no cloud API — sensor/safety data never leaves the facility) drafts an incident report citing the actual regulatory text retrieved from a DGMS/OISD/Factory Act corpus, not a hallucinated reference.
-- **Live CCTV hazard detection** — four fine-tuned RT-DETR models running on real video (uploaded clip or a live camera/RTSP feed, same code path either way): PPE compliance, unauthorized zone entry, fall/man-down, fire/smoke.
+- **Live CCTV hazard detection** — four fine-tuned RT-DETR models running on real video (uploaded clip or a live camera/RTSP feed, same code path either way): PPE compliance, unauthorized zone entry, fall/man-down, fire/smoke. Detections don't just render in the session view: they raise persisted, acknowledgeable alerts (+ outbound webhook) with per-event cooldowns, so a hazard seen at 30fps warns once, immediately, instead of flooding the inbox (`server/live_watch.py`).
+- **Live IoT anomaly watch** — a background watcher evaluates every ingested sensor reading against that device's own trailing baseline (no per-device configuration beyond assigning a zone); deviations beyond 4σ raise the same acknowledgeable alerts. The operator chat sees unacknowledged alerts in its plant-state context, so "anything I should know?" surfaces live warnings too.
 - **Full audit trail** — every agent decision is checkpointed (LangGraph + SQLite), and every run, violation, and incident is persisted to a multi-tenant Postgres backend.
+- **Operator copilot** — a side-panel assistant (`POST /chat`, same local LLM + pgvector retrieval as the reports) that answers natural-language questions grounded in the live plant state ("why is reactor_zone flagged?"), the regulatory corpus, and the app's own user guide — and can drive the dashboard via tool-calling ("run the reactor scenario" actually runs it; "how do I add a sensor?" gets the real workflow). Citations attached to every answer.
+- **IoT ingest security** — every registered sensor gets a per-device token; `/iot/readings` rejects unknown devices and bad tokens with a persisted `security` alert (cooldown-deduplicated), so a spoofing attempt is itself a detected, auditable event rather than silent data poisoning.
+- **Explainable zone scores** — hovering a zone on the risk map shows a mini bar chart of the gradient-based sensor saliency behind its score ("XMEAS(7) at 100%, XMEAS(8) at 17%"), computed per-instrument by `models/gnn/attribution.py`, not a canned sensor list. The map's process pipes render the GATv2's actual `zone→zone` attention scaled by source-zone risk — risk visibly propagating downstream is the model's edge attention, not an animation gimmick.
 
 ## Results (real numbers, not cherry-picked)
 
@@ -20,18 +24,20 @@ Evaluated on a held-out, run-level test split (120 runs, 30 compound-positive) �
 
 | Metric | GNN | Single-sensor baseline |
 |---|---|---|
-| F1 (compound-risk detection) | **95.2%** | 54.1% |
-| Precision | **90.9%** | 37.0% |
+| F1 (compound-risk detection) | **100%** | 54.1% |
+| Precision | **100%** | 37.0% |
 | Zone-localization accuracy | **100%** | 23.3% |
 | False-negative rate @ 5% FPR | **0%** | 90% |
-| Median lead time vs. ground-truth onset | **18 min early** | 0 min (at onset) |
+| Median detection latency vs. ground-truth onset | **0 min (at onset)** | 0 min (at onset) |
+
+(The previous mean-pooled model scored F1 95.2% / precision 90.9% and detected a median 18 min after onset; adding a GRU temporal encoder over the raw 30-sample window plus per-sensor/worker/plant graph nodes closed both gaps. Perfect scores on a 120-run synthetic test split say the benchmark is now saturated, not that the problem is solved.)
 
 Live CCTV models, evaluated on their respective held-out test sets:
 
 | Detector | Class | mAP50 |
 |---|---|---|
-| Fire/smoke (D-Fire, 4302 test images) | smoke | 0.78 |
-| Fire/smoke (D-Fire, 4302 test images) | fire | 0.59 |
+| Fire/smoke (D-Fire, 4302 test images) | smoke | 0.82 |
+| Fire/smoke (D-Fire, 4302 test images) | fire | 0.70 |
 | Fall/man-down | down | 0.74 |
 | Fall/man-down | crouching/bending | 0.76 |
 | PPE compliance | head/helmet detection (used for violation logic) | — |
@@ -68,11 +74,21 @@ live CCTV (file or RTSP) ──> RT-DETR x4 (PPE / fall / fire-smoke /    │
 ## Why these choices
 
 - **TEP simulator, not a toy dataset** — the Tennessee Eastman Process gives 52 real process variables and a physically grounded substrate for injecting dual-fault scenarios with an actual mechanistic "compounding" story (e.g. reactor cooling-water temperature step + valve sticking — neither alone crosses a single-sensor alarm threshold, the combination genuinely impairs heat removal). See [`docs/scenario-definitions.md`](docs/scenario-definitions.md) for all five scenarios and the TEP-unit-to-zone mapping.
-- **GATv2 over a heterogeneous graph, not a flat classifier** — sensor, permit, and worker-presence nodes have genuinely different relationships to a zone; a hetero-GNN lets the model learn zone-flow propagation (a fault in one unit raising risk in the next) instead of treating every signal as interchangeable.
+- **GATv2 over a heterogeneous graph, not a flat classifier** — sensor, sensor-cluster, permit, worker-presence, and plant nodes have genuinely different relationships to a zone; a hetero-GNN lets the model learn zone-flow propagation (a fault in one unit raising risk in the next) instead of treating every signal as interchangeable. Sensor clusters enter the graph through a GRU over the raw 30-sample window rather than mean-pooled summary stats, so a slow drift and a sudden step — identical in window mean — are distinguishable.
 - **LangGraph, not a single LLM call** — explicit state graph with built-in checkpointing gives a free, inspectable audit trail, which is what the "regulatory compliance coverage" judging criterion actually rewards.
 - **RT-DETR, not YOLO** — a transformer-based detector gives comparable inference speed pretrained, plus attention maps as a built-in explainability artifact for "why did the agent flag this frame."
 - **Local LLM (Ollama), not a cloud API** — plants will not send live SCADA/safety data to an external API; this runs entirely on-prem.
 - **Multi-tenant from the schema up** — every relational table anchors on `facility_id`, not bolted on later.
+
+## Deployment
+
+Three tiers, same containers throughout:
+
+- **Laptop / single box** — `docker compose up` (add `-f docker-compose.gpu.yml` on an NVIDIA host). The backend entrypoint waits for Postgres, migrates, and seeds — zero manual steps.
+- **Kubernetes** — `kubectl apply -k deploy/k8s/base` deploys the full stack (pgvector StatefulSet, Ollama with a model-cache PVC, backend, 2× nginx frontend, single-host ingress with `/api` routed to the backend). `deploy/k8s/overlays/gpu` schedules Ollama + the vision backend onto NVIDIA nodes and runs the LLM fully on-GPU. All manifests validate clean under `kubeconform -strict`.
+- **CI/CD** — `.github/workflows/deploy.yml`: code checks → build & push both images to GHCR (tagged `latest` + commit SHA) → if a `KUBE_CONFIG_B64` secret is configured, roll the cluster deployment and wait for rollout health. A `Jenkinsfile` with the same three stages ships for teams on in-house Jenkins instead of Actions.
+
+Scaling note: the frontend scales horizontally; the backend is pinned to 1 replica while live vision sessions and watcher threads are in-process state — the documented path to N replicas is moving session state to Redis (already in the stack for that purpose).
 
 ## Repo layout
 

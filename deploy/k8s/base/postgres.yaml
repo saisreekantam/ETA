@@ -1,0 +1,67 @@
+# Postgres + pgvector -- the relational anchor (facilities/zones/permits/alerts) and
+# the RAG vector store. StatefulSet + PVC: risk history must survive pod reschedules.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-credentials
+  namespace: industrial-safety
+type: Opaque
+stringData:
+  POSTGRES_USER: isi
+  POSTGRES_PASSWORD: isi          # override per-environment (kustomize secretGenerator / SealedSecrets)
+  POSTGRES_DB: industrial_safety
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: industrial-safety
+spec:
+  clusterIP: None                 # headless: stable DNS for the single replica
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: industrial-safety
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: pgvector/pgvector:pg16
+          envFrom:
+            - secretRef:
+                name: postgres-credentials
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "isi", "-d", "industrial_safety"]
+            periodSeconds: 5
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { memory: 2Gi }
+  volumeClaimTemplates:
+    - metadata:
+        name: pgdata
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi

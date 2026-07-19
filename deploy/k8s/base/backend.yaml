@@ -1,0 +1,106 @@
+# FastAPI backend: agent pipeline (GNN, RAG, LangGraph), device hub, live watchers.
+# The image entrypoint waits for Postgres, runs Alembic migrations, and seeds the demo
+# facility -- so a fresh namespace comes up working with zero manual steps.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: industrial-safety
+data:
+  DATABASE_URL: postgresql+psycopg2://isi:isi@postgres:5432/industrial_safety
+  OLLAMA_URL: http://ollama:11434
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  API_KEY_REQUIRED: "false"      # flip true + seed keys for anything internet-facing
+  CORS_ORIGINS: "*"
+  IOT_SIMULATOR: "true"
+  DEVICE_WATCHER: "true"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: industrial-safety
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: industrial-safety
+spec:
+  replicas: 1                    # in-memory vision sessions + watcher threads: keep 1
+  selector:                      # until sessions move to Redis (then scale freely)
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/saisreekantam/eta-backend:latest
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          ports:
+            - containerPort: 8000
+          startupProbe:
+            httpGet:
+              path: /facilities
+              port: 8000
+            periodSeconds: 10
+            failureThreshold: 60   # migrations + first-boot seeding take a while
+          readinessProbe:
+            httpGet:
+              path: /facilities
+              port: 8000
+            periodSeconds: 15
+          resources:
+            requests: { cpu: "1", memory: 3Gi }
+            limits: { memory: 8Gi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: industrial-safety
+spec:
+  selector:
+    app: frontend
+  ports:
+    - port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: industrial-safety
+spec:
+  replicas: 2                    # static nginx -- scale freely
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: ghcr.io/saisreekantam/eta-frontend:latest
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { memory: 256Mi }
