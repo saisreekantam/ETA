@@ -19,7 +19,9 @@ import time
 import uuid
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+import secrets
+
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -59,6 +61,9 @@ def _device_payload(d: Device, latest: SensorReading | None = None) -> dict:
         "last_error": d.last_error,
         "latest_value": latest.value if latest else None,
         "latest_at": latest.created_at.isoformat() + "Z" if latest else None,
+        # surfaced so the Devices page can render a working curl snippet; acceptable for
+        # this deployment model where dashboard access already implies operator trust
+        "ingest_token": d.ingest_token,
     }
 
 
@@ -107,6 +112,8 @@ def create_device(body: DeviceCreate, facility_id: str | None = None, db: Sessio
     device = Device(
         facility_id=fid, zone_id=zone.id if zone else None, name=body.name, kind=body.kind,
         source_type=body.source_type, source=body.source, metric=body.metric, unit=body.unit,
+        # sensors push over HTTP, so each gets its own ingest credential at birth
+        ingest_token="isi_dev_" + secrets.token_hex(16) if body.kind == "sensor" else None,
     )
     db.add(device)
     db.commit()
@@ -195,11 +202,40 @@ class ReadingIn(BaseModel):
 
 
 @router.post("/iot/readings")
-def ingest_reading(body: ReadingIn, db: Session = Depends(get_db)):
-    """The pluggable-IoT ingest: any device that can POST JSON can feed the platform."""
-    device = db.query(Device).filter_by(id=uuid.UUID(body.device_id)).one_or_none()
+def ingest_reading(body: ReadingIn, x_device_token: str | None = Header(default=None),
+                   db: Session = Depends(get_db)):
+    """The pluggable-IoT ingest: any device that can POST JSON can feed the platform --
+    but only with that device's own token (X-Device-Token, issued at registration).
+    Without this, anyone on the plant network could spoof a sensor to fake a hazard or,
+    worse, flood calm readings to mask a real one. Rejected attempts raise a facility
+    'security' alert (cooldown-deduplicated) so spoofing is itself a detected event."""
+    from server.live_watch import raise_security_alert
+
+    try:
+        device_uuid = uuid.UUID(body.device_id)
+    except ValueError:
+        device_uuid = None
+    device = db.query(Device).filter_by(id=device_uuid).one_or_none() if device_uuid else None
+
     if device is None:
-        raise HTTPException(status_code=404, detail="device not found")
+        # unknown device id: no facility to route to, so warn the default facility
+        raise_security_alert(
+            _resolve_facility_id(db, None),
+            f"Unregistered device attempted sensor ingest (device_id={body.device_id[:40]!r})",
+            cooldown_key=f"ingest-unknown:{body.device_id[:40]}",
+        )
+        raise HTTPException(status_code=401, detail="unknown device")
+
+    if device.ingest_token and x_device_token != device.ingest_token:
+        raise_security_alert(
+            device.facility_id,
+            f"Rejected ingest for device '{device.name}': missing or invalid X-Device-Token "
+            f"(possible spoofing attempt)",
+            cooldown_key=f"ingest-badtoken:{device.id}",
+            zone_id=device.zone_id,
+        )
+        raise HTTPException(status_code=401, detail="missing or invalid X-Device-Token")
+
     reading = SensorReading(device_id=device.id, metric=body.metric or device.metric or "value",
                             value=body.value)
     device.status = "online"

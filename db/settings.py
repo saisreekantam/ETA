@@ -19,6 +19,12 @@ class Settings(BaseSettings):
     # NVIDIA card (see orchestrator_node). Set high (e.g. 999) on Macs / large GPUs to
     # run the whole model on the accelerator, or 0 to let Ollama decide.
     ollama_num_gpu: int = 20
+    # Chat assistant LLM (server/chat.py). Defaults to the same local Ollama + model as
+    # the incident-report LLM; set both to point chat at a bigger remote model instead
+    # (e.g. qwen2.5:14b on the GPU box, reached via an SSH tunnel: CHAT_OLLAMA_URL=
+    # http://localhost:11435 after `ssh -f -N -L 11435:localhost:11434 <gpu-host>`).
+    chat_ollama_url: str = ""  # empty = use ollama_url
+    chat_model: str = ""  # empty = use the report model (orchestrator_node.OLLAMA_MODEL)
     api_key_required: bool = False  # flip true once keys are seeded (see db/seed.py)
     cors_origins: str = "*"
     # Optional outbound notification channel: alert/emergency escalations POST a JSON
@@ -27,6 +33,9 @@ class Settings(BaseSettings):
     # Background thread that generates readings for source_type="simulated" sensors so
     # the Devices page demos with moving data. Disable for real deployments.
     iot_simulator: bool = True
+    # Background watcher that evaluates ingested IoT readings against each device's own
+    # trailing baseline and raises alerts on deviation (server/live_watch.py).
+    device_watcher: bool = True
 
 
 settings = Settings()

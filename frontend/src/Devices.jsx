@@ -105,7 +105,7 @@ function SensorCard({ device, onDelete }) {
     return () => { alive = false; clearInterval(t); };
   }, [device.id]);
 
-  const curlHint = `curl -X POST ${API_BASE}/iot/readings -H 'Content-Type: application/json' \\\n  -d '{"device_id":"${device.id}","value":42.5}'`;
+  const curlHint = `curl -X POST ${API_BASE}/iot/readings -H 'Content-Type: application/json' \\\n  -H 'X-Device-Token: ${device.ingest_token || "<no token — camera devices don't push>"}' \\\n  -d '{"device_id":"${device.id}","value":42.5}'`;
 
   return (
     <motion.div className="device-card" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>

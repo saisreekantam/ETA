@@ -37,12 +37,18 @@ def _escalation_for(max_score: float) -> str:
     return "none"
 
 
-def _call_llm(prompt: str) -> str:
+def _call_llm(prompt: str, url: str | None = None, model: str | None = None,
+              num_gpu: int | None = None) -> str:
+    """Defaults serve the incident-report path (local Ollama, OLLAMA_MODEL, the
+    VRAM-capped num_gpu). server/chat.py overrides url/model to point at a different
+    (e.g. remote GPU-hosted) model; num_gpu is only applied when targeting the default
+    local Ollama, since the offload cap is sized for THIS machine's card."""
     try:
-        payload = {"model": OLLAMA_MODEL, "prompt": prompt, "stream": False}
-        if OLLAMA_NUM_GPU:
-            payload["options"] = {"num_gpu": OLLAMA_NUM_GPU}
-        resp = requests.post(OLLAMA_URL, json=payload, timeout=120)
+        payload = {"model": model or OLLAMA_MODEL, "prompt": prompt, "stream": False}
+        effective_num_gpu = OLLAMA_NUM_GPU if num_gpu is None and url is None else num_gpu
+        if effective_num_gpu:
+            payload["options"] = {"num_gpu": effective_num_gpu}
+        resp = requests.post(url or OLLAMA_URL, json=payload, timeout=120)
         resp.raise_for_status()
         return resp.json()["response"].strip()
     except requests.exceptions.RequestException as e:

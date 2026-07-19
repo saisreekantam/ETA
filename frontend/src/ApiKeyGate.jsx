@@ -1,17 +1,33 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { KeyRound, ShieldAlert } from "lucide-react";
-import { apiFetch, getApiKey, setApiKey } from "./api";
+import { apiFetch, getApiKey, getFacility, setApiKey, setFacility } from "./api";
+import FacilityPicker from "./FacilityPicker";
 
-/** Every backend route requires X-API-Key once API_KEY_REQUIRED=true (see
- * server/main.py's require_api_key + db/seed.py, which prints one on first seed).
- * This gate is the product's login page: it validates the key against the API before
- * letting the dashboard mount, instead of the dashboard silently 401-ing. */
+/** The login flow, two stages:
+ *  1. API key -- every backend route requires X-API-Key once API_KEY_REQUIRED=true
+ *     (see server/main.py's require_api_key + db/seed.py, which prints one on first
+ *     seed). Probed on mount: when the backend doesn't require keys (dev), this stage
+ *     auto-skips instead of demanding a meaningless key.
+ *  2. Facility -- pick the guided demo plant or create/enter a custom facility
+ *     (FacilityPicker). Everything the dashboard fetches afterwards is scoped to it. */
 export default function ApiKeyGate({ children }) {
-  const [hasKey, setHasKey] = useState(!!getApiKey());
+  const [stage, setStage] = useState(() =>
+    getFacility() ? "app" : getApiKey() ? "facility" : "probing");
   const [input, setInput] = useState("");
   const [error, setError] = useState(null);
   const [checking, setChecking] = useState(false);
+
+  // Dev convenience: if the backend accepts keyless requests, skip straight to the
+  // facility stage. On any failure (backend down, 401) fall back to the key form.
+  useEffect(() => {
+    if (stage !== "probing") return;
+    let cancelled = false;
+    apiFetch("/zones")
+      .then((res) => { if (!cancelled) setStage(res.ok ? "facility" : "key"); })
+      .catch(() => { if (!cancelled) setStage("key"); });
+    return () => { cancelled = true; };
+  }, [stage]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -22,7 +38,7 @@ export default function ApiKeyGate({ children }) {
     try {
       const res = await apiFetch("/zones");
       if (!res.ok) throw new Error(res.status === 401 ? "Invalid API key" : `Server error (${res.status})`);
-      setHasKey(true);
+      setStage("facility");
     } catch (err) {
       setError(String(err.message || err));
       setApiKey("");
@@ -31,7 +47,22 @@ export default function ApiKeyGate({ children }) {
     }
   }
 
-  if (hasKey) return children;
+  if (stage === "app") return children;
+
+  if (stage === "facility") {
+    return (
+      <FacilityPicker
+        onSelect={(facility) => {
+          setFacility(facility);
+          setStage("app");
+        }}
+      />
+    );
+  }
+
+  if (stage === "probing") {
+    return <div className="login-page"><p className="login-hint">Connecting…</p></div>;
+  }
 
   return (
     <div className="login-page">

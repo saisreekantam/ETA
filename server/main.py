@@ -38,9 +38,12 @@ from scripts.replay import compute_replay_trace  # noqa: E402
 from server.alerts import fire_webhook  # noqa: E402
 from server.alerts import router as alerts_router  # noqa: E402
 from server.benchmarks import router as benchmarks_router  # noqa: E402
+from server.chat import router as chat_router  # noqa: E402
+from server.facilities import router as facilities_router  # noqa: E402
 from server.devices import router as devices_router  # noqa: E402
 from server.devices import start_simulator  # noqa: E402
 from server.live import router as live_router  # noqa: E402
+from server.live_watch import make_vision_alert_hook, start_device_watcher  # noqa: E402
 from vision.live_inference import create_session, get_session, stop_session  # noqa: E402
 
 UPLOAD_DIR = REPO_ROOT / "data" / "vision_uploads"
@@ -77,12 +80,16 @@ app.include_router(devices_router)
 app.include_router(live_router)
 app.include_router(benchmarks_router)
 app.include_router(alerts_router)
+app.include_router(chat_router)
+app.include_router(facilities_router)
 
 
 @app.on_event("startup")
 def _start_background_tasks():
     if settings.iot_simulator:
         start_simulator()
+    if settings.device_watcher:
+        start_device_watcher()
 
 _pipeline = None
 
@@ -105,7 +112,13 @@ def _resolve_facility_id(db: Session, facility_id: str | None) -> uuid.UUID:
 
 @app.get("/facilities")
 def get_facilities(db: Session = Depends(get_db)):
-    return [{"id": str(f.id), "name": f.name, "location": f.location} for f in db.query(Facility).all()]
+    """is_demo marks the seeded plant that carries the benchmark scenarios + trained
+    GNN -- the login screen offers it as the guided-demo entry point."""
+    return [{
+        "id": str(f.id), "name": f.name, "location": f.location,
+        "industry_type": f.industry_type, "n_zones": len(f.zones),
+        "is_demo": f.name == DEMO_FACILITY_NAME,
+    } for f in db.query(Facility).order_by(Facility.created_at).all()]
 
 
 @app.get("/zones")
@@ -185,6 +198,7 @@ def _read_stored_result(db: Session, fid: uuid.UUID, run_id: str, run_row: Run |
         "zone_risk_scores": [{
             "zone": key_by_zone_id.get(s.zone_id), "compound_risk_score": s.compound_risk_score,
             "baseline_risk_score": s.baseline_risk_score, "contributing_sensors": s.contributing_sensors,
+            "sensor_saliency": s.sensor_saliency or [],
         } for s in scores],
         "permit_violations": [{
             "zone": v.zone.key, "reason": v.reason, "severity": v.severity,
@@ -226,6 +240,7 @@ def run_scenario(run_id: str, force: bool = False, facility_id: str | None = Non
                 facility_id=fid, zone_id=zone.id, run_id=run_row.id if run_row else None,
                 compound_risk_score=score["compound_risk_score"], baseline_risk_score=score["baseline_risk_score"],
                 contributing_sensors=score["contributing_sensors"],
+                sensor_saliency=score.get("sensor_saliency", []),
             ))
     for violation in final_state["permit_violations"]:
         zone = zone_by_key.get(violation["zone"])
@@ -265,6 +280,7 @@ def run_scenario(run_id: str, force: bool = False, facility_id: str | None = Non
     return {
         "run_id": run_id,
         "zone_risk_scores": final_state["zone_risk_scores"],
+        "flow_attention": final_state.get("flow_attention", []),
         "permit_violations": final_state["permit_violations"],
         "escalation_level": final_state["escalation_level"],
         "incident_report": final_state["incident_report"],
@@ -332,6 +348,7 @@ def start_vision_session(
     run_fall: bool = False,
     run_fire_smoke: bool = False,
     has_active_permit: bool = False,
+    facility_id: str | None = None,
 ):
     if live:
         source = rtsp_url if rtsp_url else camera_index
@@ -345,6 +362,9 @@ def start_vision_session(
     session = create_session(
         source=source, zone=zone, run_intrusion=run_intrusion, run_fall=run_fall,
         run_fire_smoke=run_fire_smoke, has_active_permit=has_active_permit, mode=mode, loop_video=not live,
+        # hazard detections raise persisted alerts (+ webhook) on this facility --
+        # see server/live_watch.py; None falls back to whichever facility owns the zone
+        on_event=make_vision_alert_hook(facility_id),
     )
     return {"session_id": session.session_id, "mode": mode}
 

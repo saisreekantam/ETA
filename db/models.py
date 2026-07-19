@@ -46,6 +46,9 @@ class Facility(Base):
     id: Mapped[uuid.UUID] = _uuid_pk()
     name: Mapped[str] = mapped_column(String(200), unique=True)
     location: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # template key from server/facilities.py FACILITY_TEMPLATES (steel_plant, refinery,
+    # ...) -- lets the frontend badge facilities and drive type-specific defaults
+    industry_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     timezone: Mapped[str] = mapped_column(String(50), default="Asia/Kolkata")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
@@ -130,6 +133,9 @@ class ZoneRiskScore(Base):
     compound_risk_score: Mapped[float] = mapped_column(Float)
     baseline_risk_score: Mapped[float] = mapped_column(Float)
     contributing_sensors: Mapped[list] = mapped_column(JSONB, default=list)
+    # [{"sensor": ..., "saliency": 0-1}] -- gradient attribution behind
+    # contributing_sensors, kept separate so old rows/readers stay valid
+    sensor_saliency: Mapped[list] = mapped_column(JSONB, default=list)
     computed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -253,6 +259,9 @@ class Device(Base):
     source: Mapped[str | None] = mapped_column(String(500), nullable=True)
     metric: Mapped[str | None] = mapped_column(String(100), nullable=True)  # sensors: e.g. gas_ppm
     unit: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # per-device secret for the /iot/readings push API (X-Device-Token header) -- an
+    # unauthenticated ingest would let anyone on the network spoof or mask a hazard
+    ingest_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="unknown")  # unknown | online | offline
     last_seen: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -282,10 +291,12 @@ class Alert(Base):
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     facility_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("facilities.id"))
-    zone_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("zones.id"))
+    # nullable: security alerts (e.g. an unregistered device hitting the ingest API)
+    # have no zone to attach to -- the facility is the scope
+    zone_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("zones.id"), nullable=True)
     run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("runs.id"), nullable=True)
     external_run_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    level: Mapped[str] = mapped_column(String(20))  # alert | emergency
+    level: Mapped[str] = mapped_column(String(20))  # alert | emergency | security
     message: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     acknowledged_by: Mapped[str | None] = mapped_column(String(100), nullable=True)

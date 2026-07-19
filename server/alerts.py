@@ -69,8 +69,8 @@ def fire_webhook(payload: dict):
 def _alert_payload(a: Alert) -> dict:
     return {
         "id": str(a.id),
-        "zone": a.zone.key,
-        "zone_label": a.zone.label,
+        "zone": a.zone.key if a.zone_id else None,
+        "zone_label": a.zone.label if a.zone_id else "Facility-wide",
         "run_id": a.external_run_id,
         "level": a.level,
         "message": a.message,
