@@ -28,8 +28,8 @@ from vision.detectors.fall import CLASS_NAMES as FALL_CLASS_NAMES
 from vision.detectors.fall import WEIGHTS as FALL_WEIGHTS
 from vision.detectors.fire_smoke import CLASS_NAMES as FIRE_SMOKE_CLASS_NAMES
 from vision.detectors.fire_smoke import WEIGHTS as FIRE_SMOKE_WEIGHTS
-from vision.detectors.ppe import CLASS_NAMES as PPE_CLASS_NAMES
 from vision.detectors.ppe import WEIGHTS as PPE_WEIGHTS
+from vision.detectors.ppe import analyze_ppe_result
 from vision.detectors.zone_intrusion import COCO_PERSON_CLASS_ID
 
 INTRUSION_EVERY_N_FRAMES = 5
@@ -82,6 +82,10 @@ class VisionSession:
     frames_processed: int = 0
     error: str | None = None
     mode: str = "video"  # "video" or "live", set by caller for display purposes only
+    # optional callback(session, event) -- the server passes server/live_watch.py's
+    # alert hook here so live hazard detections raise persisted alerts, not just
+    # entries in this in-memory log
+    on_event: object = None
 
     def __post_init__(self):
         self._running = False
@@ -106,8 +110,14 @@ class VisionSession:
             return self._latest_jpeg
 
     def _log(self, detector: str, event: str, detail: str):
-        self.events.insert(0, VisionEvent(timestamp=time.time(), detector=detector, event=event, detail=detail))
+        ev = VisionEvent(timestamp=time.time(), detector=detector, event=event, detail=detail)
+        self.events.insert(0, ev)
         self.events = self.events[:50]
+        if self.on_event is not None:
+            try:
+                self.on_event(self, ev)
+            except Exception:
+                pass  # alerting must never break the inference loop
 
     def _run(self):
         cap = cv2.VideoCapture(self.source)
@@ -127,12 +137,14 @@ class VisionSession:
                 break
 
             try:
-                ppe_results = _ppe_model.predict(frame, conf=0.4, verbose=False)[0]
+                # low predict conf; analyze_ppe_result applies the real per-class
+                # thresholds and per-head helmet association (same logic as the demo
+                # path -- see vision/detectors/ppe.py docstring for the hair-FP guards)
+                ppe_results = _ppe_model.predict(frame, conf=0.25, verbose=False)[0]
                 annotated = ppe_results.plot()
-                labels = [PPE_CLASS_NAMES[int(b.cls.item())] for b in ppe_results.boxes]
-                if "head" in labels and "helmet" not in labels:
-                    n = labels.count("head")
-                    self._log("ppe", "ppe_violation", f"{n} worker(s) detected without helmets in {self.zone}")
+                _, n_bare, _ = analyze_ppe_result(ppe_results)
+                if n_bare > 0:
+                    self._log("ppe", "ppe_violation", f"{n_bare} worker(s) detected without helmets in {self.zone}")
 
                 if self.run_intrusion and frame_idx % INTRUSION_EVERY_N_FRAMES == 0:
                     person_results = _person_model.predict(frame, conf=0.4, verbose=False)[0]

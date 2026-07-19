@@ -27,24 +27,200 @@
       0.653
     ]
   },
+  "violation_1": {
+    "source_image": "005641_jpg.rf.e8f647a4d5ddee7031cbe5cc58145fe8.jpg",
+    "annotated_image": "violation_1.jpg",
+    "detections": [
+      "head",
+      "head",
+      "head"
+    ],
+    "confidences": [
+      0.877,
+      0.875,
+      0.866
+    ],
+    "has_violation": true,
+    "person_count": 3,
+    "person_confidences": [
+      0.923,
+      0.908,
+      0.881
+    ]
+  },
+  "violation_2": {
+    "source_image": "005657_jpg.rf.3a6fb96684576db0282d408ccc32b67c.jpg",
+    "annotated_image": "violation_2.jpg",
+    "detections": [
+      "head",
+      "head",
+      "head",
+      "head",
+      "head",
+      "head",
+      "head",
+      "head"
+    ],
+    "confidences": [
+      0.875,
+      0.865,
+      0.86,
+      0.858,
+      0.848,
+      0.844,
+      0.823,
+      0.779
+    ],
+    "has_violation": true,
+    "person_count": 9,
+    "person_confidences": [
+      0.944,
+      0.94,
+      0.94,
+      0.934,
+      0.922,
+      0.904,
+      0.904,
+      0.754,
+      0.431
+    ]
+  },
+  "violation_3": {
+    "source_image": "006042_jpg.rf.ba9f28d93c57a0f3576377c3ee431fd2.jpg",
+    "annotated_image": "violation_3.jpg",
+    "detections": [
+      "head",
+      "head",
+      "head",
+      "head",
+      "head",
+      "head",
+      "head",
+      "head"
+    ],
+    "confidences": [
+      0.896,
+      0.894,
+      0.881,
+      0.877,
+      0.869,
+      0.866,
+      0.786,
+      0.58
+    ],
+    "has_violation": true,
+    "person_count": 8,
+    "person_confidences": [
+      0.945,
+      0.939,
+      0.933,
+      0.867,
+      0.848,
+      0.805,
+      0.71,
+      0.683
+    ]
+  },
+  "violation_4": {
+    "source_image": "006890_jpg.rf.75cc1ffc4e48c8a9c36666886d7b58d4.jpg",
+    "annotated_image": "violation_4.jpg",
+    "detections": [
+      "head",
+      "head",
+      "head",
+      "head"
+    ],
+    "confidences": [
+      0.914,
+      0.906,
+      0.902,
+      0.568
+    ],
+    "has_violation": true,
+    "person_count": 7,
+    "person_confidences": [
+      0.952,
+      0.922,
+      0.92,
+      0.918,
+      0.591,
+      0.513,
+      0.407
+    ]
+  },
   "compliant_0": {
-    "source_image": "006746_jpg.rf.ab614f64693ad790cbd985973e95c9f9.jpg",
+    "source_image": "005298_jpg.rf.647d148af5d961d8bbc041f172247170.jpg",
     "annotated_image": "compliant_0.jpg",
     "detections": [
+      "helmet",
+      "helmet",
+      "helmet",
+      "helmet",
+      "helmet",
       "helmet",
       "helmet",
       "helmet"
     ],
     "confidences": [
-      0.889,
-      0.862,
-      0.64
+      0.782,
+      0.771,
+      0.752,
+      0.699,
+      0.669,
+      0.647,
+      0.641,
+      0.61
+    ],
+    "has_violation": false,
+    "person_count": 8,
+    "person_confidences": [
+      0.89,
+      0.883,
+      0.851,
+      0.831,
+      0.8,
+      0.799,
+      0.732,
+      0.489
+    ]
+  },
+  "compliant_1": {
+    "source_image": "005746_jpg.rf.3ba1a2eeeb6c932bb016c3b6c6e3a0a4.jpg",
+    "annotated_image": "compliant_1.jpg",
+    "detections": [
+      "helmet"
+    ],
+    "confidences": [
+      0.788
     ],
     "has_violation": false,
     "person_count": 2,
     "person_confidences": [
-      0.948,
-      0.944
+      0.889,
+      0.886
+    ]
+  },
+  "compliant_2": {
+    "source_image": "006052_jpg.rf.a7c01d03fd72e2fd4e2251afa4ec46db.jpg",
+    "annotated_image": "compliant_2.jpg",
+    "detections": [
+      "helmet",
+      "helmet",
+      "helmet",
+      "helmet"
+    ],
+    "confidences": [
+      0.885,
+      0.876,
+      0.835,
+      0.825
+    ],
+    "has_violation": false,
+    "person_count": 3,
+    "person_confidences": [
+      0.755,
+      0.751,
+      0.463
     ]
   }
 }
