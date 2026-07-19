@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "motion/react";
 
 // Continuous risk gradient (green -> amber -> orange -> red) instead of hard bands, so
@@ -48,15 +49,17 @@ const LAYOUT = {
 };
 
 // Process-flow connections drawn behind the zones, routed as right angles like a real
-// plant schematic. Order: feed -> reactor -> separator -> stripper, with the recycle
-// loop reactor -> compressor -> condenser -> separator feeding back.
+// plant schematic. These mirror the GNN's ZONE_FLOW_EDGES exactly (same pairs, same
+// direction) -- required so the per-edge attention returned by the model maps 1:1 onto
+// drawn pipes: feed -> reactor -> condenser -> separator -> stripper, with the recycle
+// separator -> compressor -> reactor feeding back.
 const PIPES = [
   ["feed_zone", "reactor_zone"],
-  ["reactor_zone", "separator_zone"],
-  ["separator_zone", "stripper_zone"],
-  ["reactor_zone", "compressor_zone"],
-  ["compressor_zone", "condenser_zone"],
+  ["reactor_zone", "condenser_zone"],
   ["condenser_zone", "separator_zone"],
+  ["separator_zone", "stripper_zone"],
+  ["separator_zone", "compressor_zone"],
+  ["compressor_zone", "reactor_zone"],
 ];
 
 function center(z) {
@@ -97,7 +100,41 @@ function orthPath(a, b) {
 
 const PERMIT_SHORT = { hot_work: "HOT WORK", confined_space: "CONFINED", electrical: "ELECTRICAL", general: "GENERAL" };
 
-export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone, permits, workerPresence }) {
+// Hover tooltip: mini bar chart of the gradient-saliency behind a zone's score --
+// "which sensors drove this number" -- rendered inside the SVG so it tracks the zone
+// boxes without any portal/positioning machinery.
+function SaliencyTooltip({ zone, saliency, width, height }) {
+  const rows = saliency.slice(0, 5);
+  const boxW = 200;
+  const boxH = 34 + rows.length * 17;
+  const x = zone.x + zone.w + 10 + boxW > width ? zone.x - boxW - 10 : zone.x + zone.w + 10;
+  const y = Math.max(6, Math.min(zone.y, height - boxH - 6));
+  const barMax = 108;
+
+  return (
+    <g className="saliency-tip" pointerEvents="none">
+      <rect x={x} y={y} width={boxW} height={boxH} rx={8} className="saliency-tip-bg" />
+      <text x={x + 10} y={y + 17} className="saliency-tip-title">Top sensors · gradient saliency</text>
+      {rows.map((r, i) => {
+        const rowY = y + 30 + i * 17;
+        return (
+          <g key={r.sensor}>
+            <text x={x + 10} y={rowY + 8} className="saliency-tip-sensor">{r.sensor}</text>
+            <rect x={x + 78} y={rowY} width={barMax} height={10} rx={3} className="saliency-tip-track" />
+            <rect x={x + 78} y={rowY} width={Math.max(3, r.saliency * barMax)} height={10} rx={3}
+                  className="saliency-tip-bar" />
+            <text x={x + 78 + barMax + 4} y={rowY + 8.5} className="saliency-tip-pct" textAnchor="start">
+              {Math.round(r.saliency * 100)}%
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone, permits, workerPresence, sensorSaliencyByZone, flowAttention }) {
+  const [hoveredZone, setHoveredZone] = useState(null);
   if (!zones) {
     return (
       <div style={{ height: 360, display: "flex", alignItems: "center", justifyContent: "center", color: "#565f73", fontSize: 13 }}>
@@ -107,6 +144,14 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
   }
   const width = 860;
   const height = 360;
+
+  // The hardcoded schematic LAYOUT (and its process-flow pipes) is the demo plant's.
+  // Custom facilities render from their DB zone coordinates instead -- template zones
+  // (server/facilities.py) are laid out on this same canvas. All-or-nothing so a
+  // custom facility that reuses a demo key (e.g. control_room) doesn't get a mix of
+  // the two coordinate systems.
+  const isDemoLayout = Object.keys(zones).length > 0 && Object.keys(zones).every((k) => LAYOUT[k]);
+  const boxFor = (zoneId) => (isDemoLayout ? LAYOUT[zoneId] : zones[zoneId]);
 
   // Active permits and on-shift workers per zone -- the "permit overlaps + worker
   // location" situational-awareness layer over the risk heat.
@@ -129,18 +174,47 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
           <rect width="7" height="7" fill="none" />
           <line x1="0" y1="0" x2="0" y2="7" stroke="rgba(255,255,255,0.35)" strokeWidth="1.6" />
         </pattern>
+        {/* glass sheen laid over every zone box: bright top edge fading out, like light
+            catching a pane over the process floor */}
+        <linearGradient id="zone-glass" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" stopOpacity="0.22" />
+          <stop offset="0.35" stopColor="#ffffff" stopOpacity="0.05" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
       </defs>
 
       <g className="pipes">
-        {PIPES.map(([a, b]) => {
+        {isDemoLayout && PIPES.map(([a, b]) => {
           const za = LAYOUT[a], zb = LAYOUT[b];
           if (!za || !zb) return null;
-          return <path key={`${a}-${b}`} className="zone-pipe" d={orthPath(za, zb)} fill="none" />;
+          const d = orthPath(za, zb);
+          // GATv2 attention on this process-flow edge, scaled by the source zone's
+          // risk: a pipe glows hard when a risky upstream zone is what its neighbor is
+          // attending to -- risk visibly propagating through the plant, which is the
+          // whole argument for the graph model. (Attention normalizes over each
+          // target's incoming edges, so source risk supplies the magnitude.)
+          const att = flowAttention?.find((f) => (f.src === a && f.dst === b) || (f.src === b && f.dst === a));
+          const srcRisk = att ? Math.max(riskByZone[att.src] || 0, 0) : 0;
+          const w = att ? att.attention * (0.2 + 0.8 * srcRisk) : null;
+          return (
+            <g key={`${a}-${b}`}>
+              <path className="zone-pipe" d={d} fill="none"
+                    style={w != null ? { strokeWidth: 2 + w * 5 } : undefined} />
+              {/* animated dashes riding the same path -- material moving through the plant */}
+              <path className="zone-pipe-flow" d={d} fill="none"
+                    style={w != null ? {
+                      strokeWidth: 1.5 + w * 5.5,
+                      opacity: 0.35 + Math.min(w, 1) * 0.65,
+                      stroke: w > 0.45 ? "var(--accent-red)" : w > 0.2 ? "var(--accent-amber)" : "var(--accent-cyan)",
+                      filter: `drop-shadow(0 0 ${3 + w * 9}px currentColor)`,
+                    } : undefined} />
+            </g>
+          );
         })}
       </g>
 
-      {Object.keys(zones).filter((zoneId) => LAYOUT[zoneId]).map((zoneId) => {
-        const z = LAYOUT[zoneId];
+      {Object.keys(zones).filter((zoneId) => boxFor(zoneId)).map((zoneId) => {
+        const z = boxFor(zoneId);
         const label = zones[zoneId].label;
         const score = riskByZone[zoneId];
         const baseline = baselineByZone[zoneId];
@@ -149,11 +223,15 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
         const permit = activePermitByZone[zoneId];
         const workers = workersByZone[zoneId] || 0;
 
+        const saliency = (sensorSaliencyByZone && sensorSaliencyByZone[zoneId]) || [];
+
         return (
           <motion.g
             key={zoneId}
             initial={false}
             style={{ filter: glowFilter(isActive ? score : null) }}
+            onMouseEnter={saliency.length ? () => setHoveredZone(zoneId) : undefined}
+            onMouseLeave={saliency.length ? () => setHoveredZone(null) : undefined}
           >
             <motion.rect
               x={z.x} y={z.y} width={z.w} height={z.h}
@@ -169,6 +247,8 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
               style={{ transformOrigin: `${z.x + z.w / 2}px ${z.y + z.h / 2}px` }}
               transition={{ duration: 0.6, ease: "easeOut" }}
             />
+            <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={12}
+                  fill="url(#zone-glass)" pointerEvents="none" />
             {permit && score != null && (
               <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={12}
                     fill="url(#permit-hatch)" pointerEvents="none" />
@@ -226,6 +306,15 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
           </motion.g>
         );
       })}
+
+      {hoveredZone && boxFor(hoveredZone) && (sensorSaliencyByZone?.[hoveredZone]?.length > 0) && (
+        <SaliencyTooltip
+          zone={boxFor(hoveredZone)}
+          saliency={sensorSaliencyByZone[hoveredZone]}
+          width={width}
+          height={height}
+        />
+      )}
     </svg>
   );
 }

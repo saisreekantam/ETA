@@ -3,9 +3,10 @@ import { AnimatePresence, motion } from "motion/react";
 import {
   ShieldAlert, Radio, PlayCircle, Camera, ScrollText, AlertTriangle,
   FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight, RefreshCw, Info,
-  Sun, Moon, HardDrive, BarChart3, Bell, LogOut, FileDown, Rss, Square,
+  Sun, Moon, HardDrive, BarChart3, Bell, LogOut, FileDown, Rss, Square, MessageSquare,
 } from "lucide-react";
-import { API_BASE, ackAlert, evidenceUrl, getAlerts, getZones, getScenarios, liveStreamUrl, runScenario, setApiKey } from "./api";
+import { API_BASE, ackAlert, evidenceUrl, getAlerts, getFacility, getZones, getScenarios, liveStreamUrl, runScenario, setApiKey, setFacility } from "./api";
+import ChatPanel from "./ChatPanel";
 import PlantMap from "./PlantMap";
 import Replay from "./Replay";
 import LiveMonitoring from "./LiveMonitoring";
@@ -14,8 +15,6 @@ import Devices from "./Devices";
 import Evaluation from "./Evaluation";
 import IncidentReport from "./IncidentReport";
 import "./App.css";
-
-const FACILITY_NAME = "Demo Steel & Chemical Plant";
 
 const ESCALATION_LABEL = {
   none: "Normal",
@@ -54,6 +53,7 @@ export default function App() {
   const [liveFrame, setLiveFrame] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   // Reflect the theme onto <html data-theme> so the CSS variable overrides apply, and
   // remember the choice. Dark is the default.
@@ -62,12 +62,24 @@ export default function App() {
     localStorage.setItem("isi_theme", theme);
   }, [theme]);
 
+  // Retry with backoff instead of a single shot: a one-shot fetch during a backend
+  // restart would strand the map on "Loading plant layout…" until a manual refresh.
   useEffect(() => {
-    getZones().then(setZones);
-    getScenarios().then((s) => {
+    let cancelled = false;
+    async function loadWithRetry(fn, apply, attempt = 0) {
+      try {
+        const data = await fn();
+        if (!cancelled) apply(data);
+      } catch {
+        if (!cancelled && attempt < 10) setTimeout(() => loadWithRetry(fn, apply, attempt + 1), 2000 + attempt * 1000);
+      }
+    }
+    loadWithRetry(getZones, setZones);
+    loadWithRetry(getScenarios, (s) => {
       setScenarios(s);
-      if (s.length) setSelectedRunId(s[0].compound_run_ids[0]);
+      if (s.length) setSelectedRunId((cur) => cur || s[0].compound_run_ids[0]);
     });
+    return () => { cancelled = true; };
   }, []);
 
   // Alert inbox: poll for unacknowledged escalations so the bell reflects reality even
@@ -97,10 +109,11 @@ export default function App() {
     setAlerts((a) => a.filter((x) => x.id !== alert.id));
   }
 
-  async function handleRun(runId, { force = false } = {}) {
+  async function handleRun(runId, { force = false, ensureSingle = false } = {}) {
     setSelectedRunId(runId);
     setReplayFrame(null);
-    if (mode !== "single") return; // Replay component drives itself off selectedRunId
+    if (ensureSingle) setMode("single");
+    else if (mode !== "single") return; // Replay component drives itself off selectedRunId
     setLoading(true);
     setError(null);
     setResult(null);
@@ -111,6 +124,24 @@ export default function App() {
       setError(String(e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  // UI actions chosen by the chat copilot (server/chat.py CHAT_TOOLS) -- the panel
+  // stays open so the answer and the action land together.
+  function handleChatAction(action) {
+    const args = action.args || {};
+    if (action.tool === "navigate" && MODES.some((m) => m.key === args.page)) {
+      setMode(args.page);
+      setLiveOn(false);
+    } else if (action.tool === "run_scenario" && args.run_id) {
+      setLiveOn(false);
+      handleRun(String(args.run_id), { ensureSingle: true });
+    } else if (action.tool === "start_replay" && args.run_id) {
+      setLiveOn(false);
+      setResult(null);
+      setSelectedRunId(String(args.run_id));
+      setMode("replay");
     }
   }
 
@@ -179,14 +210,26 @@ export default function App() {
         </nav>
 
         <div className="appbar-meta">
-          <div className="facility-chip">
+          <button
+            className="facility-chip facility-switch"
+            onClick={() => { setFacility(null); window.location.reload(); }}
+            title="Switch facility"
+          >
             <span className="facility-label">Facility</span>
-            <span className="facility-name">{FACILITY_NAME}</span>
-          </div>
+            <span className="facility-name">{getFacility()?.name || "—"}</span>
+          </button>
           <div className="status-pill live">
             <span className="status-dot" />
             <Activity size={13} /> System online
           </div>
+          <button
+            className={chatOpen ? "icon-btn chat-toggle active" : "icon-btn chat-toggle"}
+            onClick={() => setChatOpen((v) => !v)}
+            aria-label="Operator chat"
+            title="Operator chat — ask about plant state or safety procedures"
+          >
+            <MessageSquare size={16} />
+          </button>
           <div className="alert-bell-wrap">
             <button
               className={alerts.length ? "icon-btn alert-bell has-alerts" : "icon-btn alert-bell"}
@@ -254,7 +297,9 @@ export default function App() {
                   <span className="sidebar-count">{scenarios.length}</span>
                 </div>
                 <p className="sidebar-hint">
-                  {mode === "replay"
+                  {scenarios.length === 0
+                    ? "No benchmark scenarios here — they live on the demo plant. Switch facility (top right) to run the guided demo; this facility's zones, devices, alerts, and chat are live."
+                    : mode === "replay"
                     ? "Pick a run to scrub its risk timeline."
                     : "Run a benchmark trace through the pipeline."}
                 </p>
@@ -347,6 +392,10 @@ export default function App() {
                       zones={zones} riskByZone={riskByZone} baselineByZone={baselineByZone} activeZone={activeZone}
                       permits={mode === "single" && result ? result.permits : null}
                       workerPresence={mode === "single" && result ? result.worker_presence : null}
+                      sensorSaliencyByZone={mode === "single" && result
+                        ? Object.fromEntries(result.zone_risk_scores.map((z) => [z.zone, z.sensor_saliency || []]))
+                        : null}
+                      flowAttention={mode === "single" && result ? result.flow_attention : null}
                     />
                   </div>
 
@@ -482,6 +531,8 @@ export default function App() {
           </AnimatePresence>
         </main>
       </div>
+
+      <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)} onAction={handleChatAction} />
     </div>
   );
 }

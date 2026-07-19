@@ -1510,3 +1510,538 @@ body {
   color: var(--text-tertiary);
   pointer-events: none;
 }
+
+/* ---------- operator chat panel ---------- */
+
+.chat-toggle.active {
+  color: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 10px var(--accent-cyan-glow);
+}
+
+.chat-panel {
+  position: fixed;
+  top: calc(var(--appbar-h) + 12px);
+  right: 12px;
+  bottom: 12px;
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  z-index: 60;
+  overflow: hidden;
+}
+
+.chat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--titlebar-tint);
+}
+
+.chat-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chat-thread {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-empty {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.55;
+  padding: 6px 2px;
+}
+
+.chat-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.chat-chip {
+  text-align: left;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel-raised);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.chat-chip:hover { background: var(--bg-panel-hover); border-color: var(--accent-cyan); }
+
+.chat-msg { display: flex; flex-direction: column; max-width: 92%; }
+.chat-msg.user { align-self: flex-end; align-items: flex-end; }
+.chat-msg.assistant { align-self: flex-start; align-items: flex-start; }
+
+.chat-bubble {
+  font-size: 12.5px;
+  line-height: 1.55;
+  padding: 8px 11px;
+  border-radius: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-msg.user .chat-bubble {
+  background: var(--accent-cyan);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-msg.assistant .chat-bubble {
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-msg.error .chat-bubble {
+  border-color: var(--accent-red);
+  color: var(--violation-critical-text);
+}
+
+.chat-citations {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.chat-citations summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chat-citations ul {
+  margin: 6px 0 0;
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.chat-citations li { line-height: 1.45; }
+.chat-citation-text { display: block; color: var(--text-tertiary); }
+
+.chat-typing { display: flex; gap: 4px; align-items: center; min-width: 34px; }
+.chat-typing span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--text-tertiary);
+  animation: chat-blink 1.2s infinite;
+}
+.chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+.chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes chat-blink { 0%, 70%, 100% { opacity: 0.25; } 35% { opacity: 1; } }
+
+.chat-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--titlebar-tint);
+}
+
+.chat-input {
+  flex: 1;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel-raised);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.chat-input:focus { border-color: var(--accent-cyan); }
+
+.chat-send {
+  width: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--accent-cyan);
+  color: #fff;
+  cursor: pointer;
+}
+
+.chat-send:disabled { opacity: 0.4; cursor: default; }
+
+/* ---------- zone saliency hover tooltip ---------- */
+
+.saliency-tip-bg {
+  fill: var(--bg-panel-raised);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
+}
+
+.saliency-tip-title {
+  font-size: 9.5px;
+  font-weight: 600;
+  fill: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.saliency-tip-sensor {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: var(--text-primary);
+}
+
+.saliency-tip-track { fill: var(--overlay-soft); }
+.saliency-tip-bar { fill: var(--accent-cyan); }
+
+.saliency-tip-pct {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  fill: var(--text-secondary);
+}
+
+/* ---------- facility picker / onboarding wizard ---------- */
+
+.facility-card { max-width: 480px; }
+.facility-card.wide { max-width: 620px; }
+
+.facility-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  margin-top: 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel-raised);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+
+.facility-option:hover { background: var(--bg-panel-hover); border-color: var(--accent-cyan); transform: translateY(-1px); }
+.facility-option.demo { border-color: var(--accent-cyan); box-shadow: 0 0 12px var(--accent-cyan-glow); }
+.facility-option.demo svg { color: var(--accent-cyan); }
+.facility-option.create { border-style: dashed; color: var(--text-secondary); }
+
+.facility-option-body { display: flex; flex-direction: column; gap: 2px; }
+.facility-option-body strong { font-size: 13.5px; }
+.facility-option-body span { font-size: 11.5px; color: var(--text-secondary); }
+
+.wizard-back {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0 0 10px;
+}
+.wizard-back:hover { color: var(--text-primary); }
+
+.template-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.template-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 12px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel-raised);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.template-card:hover { background: var(--bg-panel-hover); border-color: var(--accent-cyan); }
+.template-card strong { font-size: 13px; }
+.template-card span { font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; }
+.template-card .template-zones { color: var(--accent-cyan); font-size: 11px; }
+
+.zone-edit-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.zone-edit-input { margin: 0; }
+
+.facility-switch { cursor: pointer; }
+.facility-switch:hover .facility-name { color: var(--accent-cyan); }
+
+/* ================================================================================
+   FACTORY GLASS — atmosphere + glassmorphism layer.
+   Appended override layer: same-specificity selectors below win over the base theme.
+   Concept: a glass control room suspended over a working plant floor — a blueprint
+   grid slowly panning underfoot, furnace-amber and process-cyan glows drifting,
+   every panel a pane of glass over that atmosphere.
+   ================================================================================ */
+
+:root {
+  --glass-bg: rgba(24, 24, 24, 0.55);
+  --glass-bg-strong: rgba(22, 22, 22, 0.74);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.09);
+  --atmo-amber: rgba(217, 164, 65, 0.13);
+  --atmo-cyan: rgba(91, 141, 184, 0.16);
+  --grid-line: rgba(91, 141, 184, 0.05);
+}
+
+[data-theme="light"] {
+  --glass-bg: rgba(255, 255, 255, 0.6);
+  --glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --glass-border: rgba(15, 23, 42, 0.12);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --atmo-amber: rgba(183, 130, 42, 0.1);
+  --atmo-cyan: rgba(47, 111, 159, 0.1);
+  --grid-line: rgba(47, 111, 159, 0.06);
+}
+
+/* --- the plant floor: fixed grid + drifting heat/process glow --------------------- */
+
+html { background: var(--bg-deep); }
+body { background: transparent; }
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: -80px;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 56px 56px, 56px 56px, 280px 280px, 280px 280px;
+  animation: grid-pan 90s linear infinite;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 640px 420px at 18% 88%, var(--atmo-amber), transparent 65%),
+    radial-gradient(ellipse 760px 480px at 84% 6%, var(--atmo-cyan), transparent 65%),
+    radial-gradient(ellipse 500px 320px at 55% 45%, rgba(87, 184, 148, 0.05), transparent 70%);
+  animation: atmo-drift 36s ease-in-out infinite alternate;
+}
+
+@keyframes grid-pan {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(56px, 56px, 0); }
+}
+
+@keyframes atmo-drift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(-30px, 18px, 0) scale(1.06); }
+  100% { transform: translate3d(26px, -20px, 0) scale(1.02); }
+}
+
+/* --- glass surfaces --------------------------------------------------------------- */
+
+.appbar {
+  background: var(--glass-bg-strong);
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), 0 1px 24px rgba(0, 0, 0, 0.18);
+}
+
+.plant-map-card,
+.result-panel,
+.scenario-group,
+.chat-panel,
+.alert-dropdown,
+.login-card,
+.empty-state,
+.facility-option,
+.template-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--shadow-card);
+}
+
+.chat-panel, .login-card { background: var(--glass-bg-strong); }
+
+.facility-option:hover, .template-card:hover, .chat-chip:hover {
+  background: var(--glass-bg-strong);
+}
+
+/* periodic sheen sweeping across the map card -- the "pane of glass" moment */
+.plant-map-card { position: relative; }
+.plant-map-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.055) 50%, transparent 58%);
+  background-size: 300% 100%;
+  animation: glass-sheen 9s ease-in-out infinite;
+}
+
+@keyframes glass-sheen {
+  0%, 55%  { background-position: 130% 0; }
+  85%, 100% { background-position: -60% 0; }
+}
+
+/* --- plant map: flowing pipes + glass zones --------------------------------------- */
+
+.zone-pipe { stroke-width: 2.5; }
+
+.zone-pipe-flow {
+  stroke: var(--accent-cyan);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-dasharray: 7 16;
+  opacity: 0.65;
+  filter: drop-shadow(0 0 4px var(--accent-cyan-glow));
+  animation: pipe-flow 1.6s linear infinite;
+}
+
+@keyframes pipe-flow {
+  from { stroke-dashoffset: 46; }
+  to   { stroke-dashoffset: 0; }
+}
+
+.zone-worker-dot { animation: worker-blink 2.8s ease-in-out infinite; }
+@keyframes worker-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+/* --- flashy micro-states ---------------------------------------------------------- */
+
+.status-pill.live {
+  box-shadow: 0 0 14px var(--accent-green-glow);
+  animation: live-glow 3.2s ease-in-out infinite;
+}
+
+@keyframes live-glow {
+  0%, 100% { box-shadow: 0 0 10px var(--accent-green-glow); }
+  50%      { box-shadow: 0 0 20px var(--accent-green-glow); }
+}
+
+.mode-btn.active {
+  background: linear-gradient(180deg, rgba(91, 141, 184, 0.22), rgba(91, 141, 184, 0.08));
+  box-shadow: var(--glass-highlight), 0 0 14px var(--accent-cyan-glow);
+}
+
+.run-btn, .facility-option, .template-card, .chat-chip {
+  transition: background 0.15s, border-color 0.15s, transform 0.18s, box-shadow 0.18s;
+}
+
+.run-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25), 0 0 10px var(--accent-cyan-glow);
+}
+
+.chat-send:not(:disabled) { box-shadow: 0 0 12px var(--accent-cyan-glow); }
+
+/* --- login: rotating border sheen on the glass card ------------------------------- */
+
+.login-page { background: transparent; }
+
+.login-card { position: relative; overflow: hidden; }
+.login-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--sheen-angle, 0deg),
+    transparent 0deg, transparent 300deg,
+    var(--accent-cyan) 330deg, rgba(217, 164, 65, 0.8) 345deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: border-sweep 7s linear infinite;
+}
+
+@property --sheen-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes border-sweep {
+  from { --sheen-angle: 0deg; }
+  to   { --sheen-angle: 360deg; }
+}
+
+/* --- restraint switch ------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  body::before, body::after,
+  .plant-map-card::after,
+  .zone-pipe-flow,
+  .zone-worker-dot,
+  .status-pill.live,
+  .login-card::before,
+  .status-dot,
+  .chat-typing span {
+    animation: none;
+  }
+}
+
+/* light theme: the active-tab glass gradient is too pale a ground for light text --
+   pin the label to the theme's primary ink and soften the glow */
+[data-theme="light"] .mode-btn.active {
+  color: var(--text-primary);
+  background: linear-gradient(180deg, rgba(47, 111, 159, 0.16), rgba(47, 111, 159, 0.06));
+  box-shadow: var(--glass-highlight), 0 0 10px var(--accent-cyan-glow);
+}
+
+/* chat copilot action chips -- the moment the assistant drives the UI */
+.chat-actions { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 5px; }
+.chat-action-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: var(--accent-cyan);
+  border: 1px solid var(--accent-cyan);
+  background: var(--glass-bg);
+  box-shadow: 0 0 10px var(--accent-cyan-glow);
+}
