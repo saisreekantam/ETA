@@ -1117,9 +1117,12 @@ body {
 
 .devices-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 14px;
+  justify-content: center;
 }
+
+.devices-grid > * { max-width: 380px; }
 
 .devices-empty { font-size: 12.5px; color: var(--text-tertiary); margin: 0; }
 
@@ -1923,41 +1926,17 @@ body::after {
   background: var(--glass-bg-strong);
 }
 
-/* periodic sheen sweeping across the map card -- the "pane of glass" moment */
 .plant-map-card { position: relative; }
-.plant-map-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.055) 50%, transparent 58%);
-  background-size: 300% 100%;
-  animation: glass-sheen 9s ease-in-out infinite;
-}
 
-@keyframes glass-sheen {
-  0%, 55%  { background-position: 130% 0; }
-  85%, 100% { background-position: -60% 0; }
-}
-
-/* --- plant map: flowing pipes + glass zones --------------------------------------- */
+/* --- plant map: static pipes + glass zones ----------------------------------------- */
 
 .zone-pipe { stroke-width: 2.5; }
 
+/* Risk-propagation overlay on a pipe: a solid glowing line, not an animated dash --
+   the color/width already encodes the signal, so it doesn't need motion to read. */
 .zone-pipe-flow {
-  stroke: var(--accent-cyan);
-  stroke-width: 2;
-  fill: none;
   stroke-linecap: round;
-  stroke-dasharray: 7 16;
-  opacity: 0.65;
-  filter: drop-shadow(0 0 4px var(--accent-cyan-glow));
-  animation: pipe-flow 1.6s linear infinite;
-}
-
-@keyframes pipe-flow {
-  from { stroke-dashoffset: 46; }
-  to   { stroke-dashoffset: 0; }
+  fill: none;
 }
 
 .zone-worker-dot { animation: worker-blink 2.8s ease-in-out infinite; }

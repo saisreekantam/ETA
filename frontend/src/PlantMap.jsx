@@ -202,18 +202,22 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
           const att = flowAttention?.find((f) => (f.src === a && f.dst === b) || (f.src === b && f.dst === a));
           const srcRisk = att ? Math.max(riskByZone[att.src] || 0, 0) : 0;
           const w = att ? att.attention * (0.2 + 0.8 * srcRisk) : null;
+          // Risk propagating along this edge is shown as a static colored overlay (width +
+          // color scale with attention-weighted risk) instead of an animated dash -- the
+          // signal stays legible without a constantly-moving line.
           return (
             <g key={`${a}-${b}`}>
               <path className="zone-pipe" d={d} fill="none"
                     style={w != null ? { strokeWidth: 2 + w * 5 } : undefined} />
-              {/* animated dashes riding the same path -- material moving through the plant */}
-              <path className="zone-pipe-flow" d={d} fill="none"
-                    style={w != null ? {
-                      strokeWidth: 1.5 + w * 5.5,
-                      opacity: 0.35 + Math.min(w, 1) * 0.65,
-                      stroke: w > 0.45 ? "var(--accent-red)" : w > 0.2 ? "var(--accent-amber)" : "var(--accent-cyan)",
-                      filter: `drop-shadow(0 0 ${3 + w * 9}px currentColor)`,
-                    } : undefined} />
+              {w != null && w > 0.15 && (
+                <path className="zone-pipe-flow" d={d} fill="none"
+                      style={{
+                        strokeWidth: 1.5 + w * 5.5,
+                        opacity: 0.35 + Math.min(w, 1) * 0.65,
+                        stroke: w > 0.45 ? "var(--accent-red)" : w > 0.2 ? "var(--accent-amber)" : "var(--accent-cyan)",
+                        filter: `drop-shadow(0 0 ${3 + w * 9}px currentColor)`,
+                      }} />
+              )}
             </g>
           );
         })}
