@@ -443,6 +443,11 @@ body {
 
 .plant-map {
   width: 100%;
+  /* Cap the drawing width so the schematic doesn't scale up to billboard size on a wide
+     screen -- the viewBox scales every stroke and label uniformly, so an uncapped width
+     makes the labels oversized. Centred within whatever width remains. */
+  max-width: 980px;
+  margin: 0 auto;
   display: block;
   padding: 8px;
   background-image:
@@ -1928,15 +1933,23 @@ body::after {
 
 .plant-map-card { position: relative; }
 
-/* --- plant map: static pipes + glass zones ----------------------------------------- */
+/* --- plant map: flowing pipes + glass zones ---------------------------------------- */
 
 .zone-pipe { stroke-width: 2.5; }
 
-/* Risk-propagation overlay on a pipe: a solid glowing line, not an animated dash --
-   the color/width already encodes the signal, so it doesn't need motion to read. */
+/* Risk-propagation overlay on a pipe: dashes travelling along the route show material
+   (and risk) moving downstream. Only rendered when there is real attention-weighted
+   risk on that edge, so an idle plant stays a still schematic. */
 .zone-pipe-flow {
   stroke-linecap: round;
   fill: none;
+  stroke-dasharray: 7 16;
+  animation: pipe-flow 1.6s linear infinite;
+}
+
+@keyframes pipe-flow {
+  from { stroke-dashoffset: 46; }
+  to   { stroke-dashoffset: 0; }
 }
 
 .zone-worker-dot { animation: worker-blink 2.8s ease-in-out infinite; }

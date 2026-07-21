@@ -36,16 +36,16 @@ function glowFilter(score) {
 // Fixed schematic layout (overrides the DB's demo coordinates) so the map reads as an
 // organised plant, not a scatter of boxes: the main process flows left-to-right across
 // the middle, the recycle compressor sits on a loop above, and the control room is docked
-// aside as a monitoring zone rather than on the process line. Coordinates are on the
-// 820x360 canvas below.
+// aside as a monitoring zone rather than on the process line. Columns are spaced evenly
+// across the full canvas width so the layout fills its frame instead of bunching left.
 const LAYOUT = {
-  feed_zone:       { x: 24,  y: 150, w: 140, h: 92 },
-  reactor_zone:    { x: 196, y: 134, w: 140, h: 118 },
-  separator_zone:  { x: 368, y: 150, w: 140, h: 92 },
-  stripper_zone:   { x: 540, y: 150, w: 130, h: 92 },
-  condenser_zone:  { x: 368, y: 32,  w: 140, h: 80 },
-  compressor_zone: { x: 184, y: 32,  w: 164, h: 80 },
-  control_room:    { x: 700, y: 32,  w: 130, h: 80 },
+  feed_zone:       { x: 26,  y: 156, w: 148, h: 92 },
+  reactor_zone:    { x: 222, y: 140, w: 148, h: 118 },
+  compressor_zone: { x: 222, y: 32,  w: 148, h: 80 },
+  condenser_zone:  { x: 418, y: 32,  w: 148, h: 80 },
+  separator_zone:  { x: 418, y: 156, w: 148, h: 92 },
+  stripper_zone:   { x: 614, y: 156, w: 148, h: 92 },
+  control_room:    { x: 614, y: 32,  w: 148, h: 80 },
 };
 
 // Process-flow connections drawn behind the zones, routed as right angles like a real
@@ -88,13 +88,18 @@ function orthPath(a, b) {
     const x = (center(topBox).cx + center(botBox).cx) / 2;
     return `M ${x} ${topBox.y + topBox.h} L ${x} ${botBox.y}`;
   }
-  // offset: leave the side of A facing B, run to a mid-x, then into the top/bottom of B
+  // offset: leave the side of A facing B at A's centre height, run to a mid-x that sits
+  // in the actual gap between the two boxes' facing edges, then drop/rise into the
+  // top/bottom centre of B. Because midX is between A's near edge and B's near edge (not
+  // inside either box's own x-range), the final horizontal-into-B segment starts outside
+  // B's footprint and enters perpendicular to its edge, instead of skimming across it.
   const aRight = cb.cx > ca.cx;
   const startX = aRight ? a.x + a.w : a.x;
   const startY = ca.cy;
   const endX = cb.cx;
   const endY = cb.cy < ca.cy ? b.y + b.h : b.y;
-  const midX = (startX + endX) / 2;
+  const bNearEdge = aRight ? b.x : b.x + b.w;
+  const midX = (startX + bNearEdge) / 2;
   return `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
 }
 
@@ -142,7 +147,7 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
       </div>
     );
   }
-  const width = 860;
+  const width = 788;
   const height = 280;
 
   // The hardcoded schematic LAYOUT (and its process-flow pipes) is the demo plant's.
@@ -168,7 +173,7 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
   }
 
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="plant-map" preserveAspectRatio="xMidYMid meet">
+    <svg viewBox={`0 0 ${width} ${height}`} className="plant-map" preserveAspectRatio="xMidYMid meet">
       <defs>
         <pattern id="permit-hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
           <rect width="7" height="7" fill="none" />
@@ -202,9 +207,9 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
           const att = flowAttention?.find((f) => (f.src === a && f.dst === b) || (f.src === b && f.dst === a));
           const srcRisk = att ? Math.max(riskByZone[att.src] || 0, 0) : 0;
           const w = att ? att.attention * (0.2 + 0.8 * srcRisk) : null;
-          // Risk propagating along this edge is shown as a static colored overlay (width +
-          // color scale with attention-weighted risk) instead of an animated dash -- the
-          // signal stays legible without a constantly-moving line.
+          // Risk propagating along this edge is drawn as a flowing overlay whose width,
+          // colour and glow scale with attention-weighted risk. Gated on w > 0.15 so the
+          // animation only appears where there is actual signal, never as idle decoration.
           return (
             <g key={`${a}-${b}`}>
               <path className="zone-pipe" d={d} fill="none"
