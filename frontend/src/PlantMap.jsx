@@ -13,7 +13,7 @@ const RISK_STOPS = [
 ];
 
 function riskColor(score) {
-  if (score == null) return "var(--zone-null-fill)";
+  if (score == null) return "url(#zone-idle-fill)";
   const s = Math.max(0, Math.min(1, score));
   for (let i = 1; i < RISK_STOPS.length; i++) {
     const [t1, c1] = RISK_STOPS[i - 1];
@@ -137,13 +137,13 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
   const [hoveredZone, setHoveredZone] = useState(null);
   if (!zones) {
     return (
-      <div style={{ height: 360, display: "flex", alignItems: "center", justifyContent: "center", color: "#565f73", fontSize: 13 }}>
+      <div style={{ height: 280, display: "flex", alignItems: "center", justifyContent: "center", color: "#565f73", fontSize: 13 }}>
         Loading plant layout…
       </div>
     );
   }
   const width = 860;
-  const height = 360;
+  const height = 280;
 
   // The hardcoded schematic LAYOUT (and its process-flow pipes) is the demo plant's.
   // Custom facilities render from their DB zone coordinates instead -- template zones
@@ -180,6 +180,12 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
           <stop offset="0" stopColor="#ffffff" stopOpacity="0.22" />
           <stop offset="0.35" stopColor="#ffffff" stopOpacity="0.05" />
           <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+        {/* Idle equipment (no score yet): a subtle top-lit fill instead of flat color,
+            so unscored zones read as real hardware on the floor, not empty placeholders. */}
+        <linearGradient id="zone-idle-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="var(--zone-null-fill-2)" />
+          <stop offset="1" stopColor="var(--zone-null-fill)" />
         </linearGradient>
       </defs>
 
