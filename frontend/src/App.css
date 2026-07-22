@@ -1095,7 +1095,7 @@ body {
 
 /* ---------- devices ---------- */
 
-.devices-page { max-width: 1040px; }
+.devices-page { max-width: 1040px; margin: 0 auto; }
 
 .devices-header {
   display: flex;
@@ -1268,7 +1268,7 @@ body {
 
 /* ---------- evaluation / benchmarks ---------- */
 
-.bench-page { max-width: 1040px; }
+.bench-page { max-width: 1040px; margin: 0 auto; }
 
 .bench-header h2 {
   display: flex; align-items: center; gap: 9px;

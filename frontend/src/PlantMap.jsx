@@ -112,7 +112,13 @@ function SaliencyTooltip({ zone, saliency, width, height }) {
   const rows = saliency.slice(0, 5);
   const boxW = 200;
   const boxH = 34 + rows.length * 17;
-  const x = zone.x + zone.w + 10 + boxW > width ? zone.x - boxW - 10 : zone.x + zone.w + 10;
+  // Prefer the right of the zone; flip left when it would overflow. Either way clamp to
+  // the canvas so a zone at the far left/right edge can't push the panel off-screen.
+  const preferred = zone.x + zone.w + 10;
+  const x = Math.max(6, Math.min(
+    preferred + boxW > width ? zone.x - boxW - 10 : preferred,
+    width - boxW - 6,
+  ));
   const y = Math.max(6, Math.min(zone.y, height - boxH - 6));
   const barMax = 108;
 
