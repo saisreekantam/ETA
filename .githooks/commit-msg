@@ -1,0 +1,22 @@
+#!/bin/sh
+# Strip AI co-author / attribution trailers from commit messages.
+#
+# Team rule: commits are authored by the people on this project -- no assistant is listed
+# as a contributor. This runs on every commit so it doesn't depend on anyone remembering.
+#
+# Enable once per clone (core.hooksPath is local config, not shared):  make hooks
+#
+# Removes:  Co-Authored-By: ... Claude/Anthropic ...
+#           "Generated with Claude Code" style attribution lines
+# Everything else is preserved, including the blank line between subject and body.
+msg_file="$1"
+
+awk '
+  tolower($0) ~ /^co-authored-by:.*(claude|anthropic)/ { next }
+  tolower($0) ~ /generated with .*claude/              { next }
+  { a[++n] = $0 }
+  END {
+    while (n > 0 && a[n] ~ /^[ \t]*$/) n--   # trim blank lines left behind
+    for (i = 1; i <= n; i++) print a[i]
+  }
+' "$msg_file" > "$msg_file.tmp" && mv "$msg_file.tmp" "$msg_file"

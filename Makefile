@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up up-gpu down restart logs logs-backend wait ps build rebuild seed migrate \
+.PHONY: help up up-gpu down restart logs logs-backend wait ps build rebuild seed migrate hooks \
         mac-setup mac-run venv fmt-check clean-docker
 
 help: ## Show this list
@@ -79,3 +79,9 @@ venv: ## Create/update the local Python virtualenv from requirements.txt
 	python3 -m venv .venv
 	./.venv/bin/pip install -q --upgrade pip
 	./.venv/bin/pip install -q -r requirements.txt
+
+## --- Repo hygiene --------------------------------------------------------------------
+
+hooks: ## Enable shared git hooks (strips AI co-author trailers from commit messages)
+	git config core.hooksPath .githooks
+	@echo "Hooks enabled. commit-msg will strip AI attribution trailers."
