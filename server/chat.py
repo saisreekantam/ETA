@@ -20,8 +20,10 @@ to the frontend as `actions`, which ChatPanel executes -- "show me the reactor r
 both answers AND switches the view. Falls back to plain /api/generate answering if the
 model/endpoint doesn't support tools.
 
-A short rolling history (last few turns) rides along in the prompt for follow-ups
-("what about the stripper?"). History lives client-side; the endpoint is stateless.
+MEMORY: a short rolling history (last MAX_HISTORY_TURNS turns) rides along in the prompt
+for follow-ups ("what about the stripper?"). The endpoint stays stateless -- the thread
+lives client-side in sessionStorage, scoped per facility (see ChatPanel.jsx), so it
+survives a reload but dies with the tab and never crosses between plants.
 """
 from __future__ import annotations
 

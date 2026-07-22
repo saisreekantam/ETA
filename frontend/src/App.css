@@ -1564,9 +1564,24 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border-subtle);
   background: var(--titlebar-tint);
+}
+
+/* Title takes the slack so the clear/close buttons stay grouped at the right edge
+   instead of being spread apart by space-between. */
+.chat-head .chat-title { flex: 1; min-width: 0; white-space: nowrap; }
+
+/* .tag-muted is built for full-width h3 headings (margin-left:auto pushes it to the far
+   right). In this narrow header that shoves it onto the buttons -- keep it inline and
+   let it truncate instead. */
+.chat-head .chat-title .tag-muted {
+  margin-left: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chat-title {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { BookOpen, MessageSquare, Send, Sparkles, X } from "lucide-react";
-import { sendChat } from "./api";
+import { BookOpen, MessageSquare, Send, Sparkles, Trash2, X } from "lucide-react";
+import { getFacility, sendChat } from "./api";
 
 // Prompts that show what the assistant can actually do (plant state + regulatory
 // corpus) -- clicking one sends it, so the demo never starts from a blank box.
@@ -18,8 +18,43 @@ const ACTION_LABELS = {
   start_replay: (a) => `Opening replay for ${String(a.args.run_id).slice(0, 6)}`,
 };
 
+// --- short-term memory -------------------------------------------------------------
+// The thread is kept in sessionStorage: it survives a reload or a stray navigation
+// (the common way an operator loses a conversation mid-task) but is gone when the tab
+// closes -- short-term by construction, and no plant Q&A left on a shared control-room
+// machine. Scoped per facility so switching plants never carries stale context across.
+const MEMORY_PREFIX = "isi_chat_v1";
+// The server keeps only the last few turns anyway (MAX_HISTORY_TURNS); this bounds what
+// we persist so a long shift can't grow the store without limit.
+const MEMORY_MAX_MESSAGES = 40;
+// Matches the server's ChatMessage max_length -- an over-long bubble replayed as history
+// would fail request validation and break every later turn.
+const MAX_CONTENT = 4000;
+
+function memoryKey() {
+  return `${MEMORY_PREFIX}:${getFacility()?.id || "default"}`;
+}
+
+function loadMemory() {
+  try {
+    const raw = sessionStorage.getItem(memoryKey());
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return []; // corrupt/unavailable storage must never block the chat
+  }
+}
+
+function saveMemory(messages) {
+  try {
+    sessionStorage.setItem(memoryKey(), JSON.stringify(messages.slice(-MEMORY_MAX_MESSAGES)));
+  } catch {
+    /* private mode / quota -- memory degrades to in-session only */
+  }
+}
+
 export default function ChatPanel({ open, onClose, onAction }) {
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(loadMemory);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const threadRef = useRef(null);
@@ -29,12 +64,24 @@ export default function ChatPanel({ open, onClose, onAction }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy]);
 
+  useEffect(() => { saveMemory(messages); }, [messages]);
+
+  // The persistence effect writes the emptied thread straight back, so clearing state is
+  // enough -- no separate storage removal needed.
+  function clearMemory() {
+    setMessages([]);
+  }
+
   async function ask(question) {
     const q = question.trim();
     if (!q || busy) return;
     setInput("");
     setBusy(true);
-    const history = messages.map(({ role, content }) => ({ role, content }));
+    // Error bubbles are UI feedback, not something the model ever said -- replaying them
+    // as assistant turns would have it apologise for failures it didn't produce.
+    const history = messages
+      .filter((m) => !m.error)
+      .map(({ role, content }) => ({ role, content: String(content).slice(0, MAX_CONTENT) }));
     setMessages((m) => [...m, { role: "user", content: q }]);
     try {
       const res = await sendChat(q, history);
@@ -64,6 +111,12 @@ export default function ChatPanel({ open, onClose, onAction }) {
               <MessageSquare size={14} /> Operator chat
               <span className="tag-muted">local LLM · RAG-grounded</span>
             </span>
+            {messages.length > 0 && (
+              <button className="icon-btn" onClick={clearMemory}
+                      title="Clear this conversation" aria-label="Clear conversation">
+                <Trash2 size={14} />
+              </button>
+            )}
             <button className="icon-btn" onClick={onClose} aria-label="Close chat"><X size={15} /></button>
           </div>
 
