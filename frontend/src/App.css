@@ -566,7 +566,7 @@ body {
 /* ---------- result panel ---------- */
 
 .result-panel { min-width: 0; }
-.workspace:not(.has-result) .result-panel { margin-top: 20px; max-width: 860px; }
+.workspace:not(.has-result) .result-panel { margin: 20px auto 0; max-width: 860px; }
 
 .result-panel-head {
   display: flex;
@@ -825,7 +825,7 @@ body {
 
 /* ---------- live monitoring ---------- */
 
-.live-monitoring { max-width: 1100px; }
+.live-monitoring { max-width: 1100px; margin: 0 auto; }
 
 .live-controls {
   background: var(--bg-panel);

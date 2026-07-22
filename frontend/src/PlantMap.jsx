@@ -108,33 +108,32 @@ const PERMIT_SHORT = { hot_work: "HOT WORK", confined_space: "CONFINED", electri
 // Hover tooltip: mini bar chart of the gradient-saliency behind a zone's score --
 // "which sensors drove this number" -- rendered inside the SVG so it tracks the zone
 // boxes without any portal/positioning machinery.
-function SaliencyTooltip({ zone, saliency, width, height }) {
+function SaliencyTooltip({ zone, label, saliency, width, height }) {
   const rows = saliency.slice(0, 5);
-  const boxW = 200;
-  const boxH = 34 + rows.length * 17;
-  // Prefer the right of the zone; flip left when it would overflow. Either way clamp to
-  // the canvas so a zone at the far left/right edge can't push the panel off-screen.
-  const preferred = zone.x + zone.w + 10;
-  const x = Math.max(6, Math.min(
-    preferred + boxW > width ? zone.x - boxW - 10 : preferred,
-    width - boxW - 6,
-  ));
-  const y = Math.max(6, Math.min(zone.y, height - boxH - 6));
-  const barMax = 108;
+  const boxW = 250;
+  const boxH = 30 + rows.length * 15;
+  // The panel lives in a reserved strip below the equipment rows (see PANEL_BAND), so it
+  // never covers a zone box. Horizontally it tracks the hovered zone -- centred under it
+  // where possible, clamped to the canvas at the edges.
+  const x = Math.max(6, Math.min(zone.x + zone.w / 2 - boxW / 2, width - boxW - 6));
+  const y = height - boxH - 8;
+  const barMax = 120;
 
   return (
     <g className="saliency-tip" pointerEvents="none">
       <rect x={x} y={y} width={boxW} height={boxH} rx={8} className="saliency-tip-bg" />
-      <text x={x + 10} y={y + 17} className="saliency-tip-title">Top sensors · gradient saliency</text>
+      <text x={x + 10} y={y + 15} className="saliency-tip-title">
+        Top sensors · gradient saliency{label ? ` · ${label}` : ""}
+      </text>
       {rows.map((r, i) => {
-        const rowY = y + 30 + i * 17;
+        const rowY = y + 26 + i * 15;
         return (
           <g key={r.sensor}>
-            <text x={x + 10} y={rowY + 8} className="saliency-tip-sensor">{r.sensor}</text>
-            <rect x={x + 78} y={rowY} width={barMax} height={10} rx={3} className="saliency-tip-track" />
-            <rect x={x + 78} y={rowY} width={Math.max(3, r.saliency * barMax)} height={10} rx={3}
+            <text x={x + 10} y={rowY + 7} className="saliency-tip-sensor">{r.sensor}</text>
+            <rect x={x + 78} y={rowY} width={barMax} height={9} rx={3} className="saliency-tip-track" />
+            <rect x={x + 78} y={rowY} width={Math.max(3, r.saliency * barMax)} height={9} rx={3}
                   className="saliency-tip-bar" />
-            <text x={x + 78 + barMax + 4} y={rowY + 8.5} className="saliency-tip-pct" textAnchor="start">
+            <text x={x + 78 + barMax + 5} y={rowY + 7.5} className="saliency-tip-pct" textAnchor="start">
               {Math.round(r.saliency * 100)}%
             </text>
           </g>
@@ -148,13 +147,15 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
   const [hoveredZone, setHoveredZone] = useState(null);
   if (!zones) {
     return (
-      <div style={{ height: 280, display: "flex", alignItems: "center", justifyContent: "center", color: "#565f73", fontSize: 13 }}>
+      <div style={{ height: 372, display: "flex", alignItems: "center", justifyContent: "center", color: "#565f73", fontSize: 13 }}>
         Loading plant layout…
       </div>
     );
   }
   const width = 788;
-  const height = 280;
+  // Equipment occupies y 32-248; the extra height is a reserved band the hover tooltip
+  // drops into, so the saliency panel never covers a zone box.
+  const height = 372;
 
   // The hardcoded schematic LAYOUT (and its process-flow pipes) is the demo plant's.
   // Custom facilities render from their DB zone coordinates instead -- template zones
@@ -331,6 +332,7 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
       {hoveredZone && boxFor(hoveredZone) && (sensorSaliencyByZone?.[hoveredZone]?.length > 0) && (
         <SaliencyTooltip
           zone={boxFor(hoveredZone)}
+          label={zones[hoveredZone]?.label}
           saliency={sensorSaliencyByZone[hoveredZone]}
           width={width}
           height={height}
