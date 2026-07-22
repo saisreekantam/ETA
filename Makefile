@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 .DEFAULT_GOAL := help
 
-.PHONY: help up up-gpu down restart logs ps build rebuild seed migrate \
+.PHONY: help up up-gpu down restart logs logs-backend wait ps build rebuild seed migrate \
         mac-setup mac-run venv fmt-check clean-docker
 
 help: ## Show this list
@@ -31,6 +31,16 @@ restart: ## Recreate every container from the current images (no rebuild)
 
 logs: ## Tail all container logs
 	docker compose logs -f --tail 100
+
+logs-backend: ## Tail just the backend log -- watch it wait for DB, migrate, seed, then serve
+	docker compose logs -f --tail 100 backend
+
+wait: ## Block until the backend API is actually ready to serve (polls /zones)
+	@echo "Waiting for backend to become ready (migrations + seed + model load)..."
+	@until curl -sf -o /dev/null http://localhost:8000/zones 2>/dev/null; do \
+		printf '.'; sleep 2; \
+	done; \
+	echo ""; echo "Backend ready -> http://localhost:8000/docs"
 
 ps: ## Show container status
 	docker compose ps
