@@ -63,7 +63,13 @@ layer fusing the two before it was too late.
 ## What NOT to claim
 
 - Don't say "saves X lives/year" as a hard number — we have no causal estimate, only the
-  mechanism (compound detection precision 0.91 vs baseline 0.37, see eval/results/metrics.json).
+  mechanism (compound detection precision 1.00 vs baseline 0.37 on the in-distribution
+  benchmark, see eval/results/metrics.json). Note the more defensible claim for a technical
+  audience is the held-out-zone generalization result (eval/permit_fusion_benchmark/,
+  docs/external-validation-findings.md) — classical baselines (PCA, Random Forest) match
+  the 1.00 in-distribution, but fail to generalize to a zone never seen in training
+  (AUC ~0.97-0.99 for the GNN vs ~0.26-0.28 for a matched flat baseline). Lead with that
+  number if asked "why not a simpler model."
 - Don't quote a total economic cost of accidents specific to India — we found no sourced
   India-specific GDP-loss figure, only the global ILO 4% figure. Don't let "4% of GDP" be
   misheard as India's number on stage; say "globally" explicitly.

@@ -136,6 +136,10 @@ class ZoneRiskScore(Base):
     # [{"sensor": ..., "saliency": 0-1}] -- gradient attribution behind
     # contributing_sensors, kept separate so old rows/readers stay valid
     sensor_saliency: Mapped[list] = mapped_column(JSONB, default=list)
+    # [{"removed_factor": ..., "score_with": ..., "score_without": ..., "delta": ...}] --
+    # "would this zone still be flagged without X", from re-scoring with that evidence
+    # type zeroed out (models/gnn/attribution.py::compute_counterfactuals)
+    counterfactuals: Mapped[list] = mapped_column(JSONB, default=list)
     computed_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
@@ -298,6 +302,13 @@ class Alert(Base):
     external_run_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     level: Mapped[str] = mapped_column(String(20))  # alert | emergency | security
     message: Mapped[str] = mapped_column(Text)
+    # Plain-language explanation of *why* this fired, from the local LLM. Populated
+    # synchronously at creation for alerts that already ran the orchestrator (pipeline
+    # runs, CCTV ppe/intrusion events -- see agents/vision_pipeline.py); populated
+    # asynchronously afterward for fast-path alerts (device anomalies, fall/fire) so the
+    # alert itself is never delayed by an LLM call -- see server/alerts.py::persist_alert.
+    reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reasoning_status: Mapped[str] = mapped_column(String(20), default="unavailable")  # ready | pending | unavailable
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     acknowledged_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

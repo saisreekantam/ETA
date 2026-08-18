@@ -870,6 +870,29 @@ body {
 
 .live-control-group.checkboxes input { accent-color: var(--accent-cyan); width: 15px; height: 15px; }
 
+.permit-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border-subtle);
+}
+
+.permit-status.active {
+  color: var(--accent-green);
+  border-color: var(--accent-green-glow);
+  background: var(--accent-green-glow);
+}
+
+.permit-status.none {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber-glow);
+  background: var(--accent-amber-glow);
+}
+
 .live-control-group select {
   background: var(--bg-panel-raised);
   border: 1px solid var(--border-subtle);
@@ -1384,7 +1407,16 @@ body {
   font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
   color: var(--text-tertiary);
   padding: 6px 10px 8px;
+  display: flex; align-items: center; justify-content: space-between;
 }
+
+.alert-export-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 600; text-transform: none; letter-spacing: normal;
+  color: var(--accent-cyan);
+  text-decoration: none;
+}
+.alert-export-link:hover { text-decoration: underline; }
 
 .alert-empty { font-size: 12.5px; color: var(--text-tertiary); padding: 10px; }
 
@@ -1403,6 +1435,67 @@ body {
 .alert-item-level { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-red); }
 .alert-item-msg { font-size: 12px; color: var(--text-primary); line-height: 1.4; }
 .alert-item-time { font-size: 10.5px; color: var(--text-tertiary); font-family: var(--font-mono); }
+
+/* On-screen alert banner: the bell dropdown is easy to miss in a live demo, this is the
+ * surface actually meant to be seen (see frontend/src/AlertBanner.jsx). */
+.alert-banner-stack {
+  position: fixed;
+  top: 72px;
+  right: 20px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 400px;
+  max-width: calc(100vw - 40px);
+  pointer-events: none;
+}
+
+.alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  border-left: 5px solid var(--accent-orange);
+  background: var(--bg-panel);
+  box-shadow: var(--shadow-card), 0 8px 28px rgba(0, 0, 0, 0.28);
+  pointer-events: auto;
+}
+
+.alert-banner.level-emergency { border-left-color: var(--accent-red); background: color-mix(in srgb, var(--accent-red-glow) 14%, var(--bg-panel)); }
+.alert-banner.level-alert { border-left-color: var(--accent-orange); }
+.alert-banner.level-monitor { border-left-color: var(--accent-cyan); }
+.alert-banner.level-security { border-left-color: var(--accent-amber); }
+
+.alert-banner-icon { flex-shrink: 0; margin-top: 1px; color: var(--accent-red); }
+.alert-banner.level-alert .alert-banner-icon { color: var(--accent-orange); }
+.alert-banner.level-monitor .alert-banner-icon { color: var(--accent-cyan); }
+.alert-banner.level-security .alert-banner-icon { color: var(--accent-amber); }
+
+.alert-banner-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.alert-banner-head { display: flex; align-items: center; gap: 8px; }
+.alert-banner-level {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--accent-red);
+}
+.alert-banner.level-alert .alert-banner-level { color: var(--accent-orange); }
+.alert-banner.level-monitor .alert-banner-level { color: var(--accent-cyan); }
+.alert-banner.level-security .alert-banner-level { color: var(--accent-amber); }
+.alert-banner-zone { font-size: 11px; color: var(--text-tertiary); }
+.alert-banner-msg { font-size: 13.5px; font-weight: 600; color: var(--text-primary); line-height: 1.4; }
+.alert-banner-reasoning { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.alert-banner-generating { display: inline-flex; align-items: center; gap: 6px; color: var(--text-tertiary); font-style: italic; }
+.alert-banner-generating .spin { animation: alert-banner-spin 1s linear infinite; }
+@keyframes alert-banner-spin { to { transform: rotate(360deg); } }
+
+.alert-banner-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.alert-banner-close {
+  background: transparent; border: none; color: var(--text-tertiary); cursor: pointer;
+  padding: 2px; border-radius: 4px; display: flex;
+}
+.alert-banner-close:hover { color: var(--text-primary); }
 
 /* ---------- live plant toggle ---------- */
 
@@ -1542,6 +1635,12 @@ body {
   color: var(--accent-cyan);
   border-color: var(--accent-cyan);
   box-shadow: 0 0 10px var(--accent-cyan-glow);
+}
+
+.break-toggle.active {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 10px var(--accent-amber-glow);
 }
 
 .chat-panel {
@@ -1755,6 +1854,11 @@ body {
 
 .saliency-tip-track { fill: var(--overlay-soft); }
 .saliency-tip-bar { fill: var(--accent-cyan); }
+/* Counterfactual bars: removing a factor DROPS the score (that factor was contributing --
+   the common, expected case) vs. RAISES it (removing it made the model more suspicious,
+   an honest surprise worth a different color rather than hiding it). */
+.cf-tip-bar-drop { fill: var(--accent-amber); }
+.cf-tip-bar-rise { fill: var(--accent-cyan); }
 
 .saliency-tip-pct {
   font-family: var(--font-mono);
@@ -2068,4 +2172,23 @@ body::after {
   border: 1px solid var(--accent-cyan);
   background: var(--glass-bg);
   box-shadow: 0 0 10px var(--accent-cyan-glow);
+}
+
+/* chat bubble markdown rendering (bold + bullets) -- see renderChatContent */
+.chat-line { min-height: 1em; }
+.chat-line + .chat-line { margin-top: 2px; }
+.chat-line-bullet {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding-left: 2px;
+}
+.chat-bullet-dot {
+  flex: none;
+  width: 4px;
+  height: 4px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
 }

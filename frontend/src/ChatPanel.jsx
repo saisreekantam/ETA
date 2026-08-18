@@ -18,6 +18,33 @@ const ACTION_LABELS = {
   start_replay: (a) => `Opening replay for ${String(a.args.run_id).slice(0, 6)}`,
 };
 
+// The LLM writes markdown (**bold**, "- " bullets); the bubble previously rendered that
+// literally as asterisks. No markdown lib pulled in for this -- just the two constructs
+// qwen actually produces in practice, parsed into real React elements (never
+// dangerouslySetInnerHTML, so nothing the model writes can inject markup).
+function renderBoldSpans(text, keyPrefix) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) =>
+    part.startsWith("**") && part.endsWith("**")
+      ? <strong key={`${keyPrefix}-${i}`}>{part.slice(2, -2)}</strong>
+      : part
+  );
+}
+
+function renderChatContent(content) {
+  const lines = String(content).split("\n");
+  return lines.map((line, i) => {
+    const bullet = line.match(/^\s*[-*]\s+(.*)/);
+    const body = renderBoldSpans(bullet ? bullet[1] : line, i);
+    return (
+      <div key={i} className={bullet ? "chat-line chat-line-bullet" : "chat-line"}>
+        {bullet && <span className="chat-bullet-dot" aria-hidden="true" />}
+        {body}
+      </div>
+    );
+  });
+}
+
 // --- short-term memory -------------------------------------------------------------
 // The thread is kept in sessionStorage: it survives a reload or a stray navigation
 // (the common way an operator loses a conversation mid-task) but is gone when the tab
@@ -143,7 +170,7 @@ export default function ChatPanel({ open, onClose, onAction }) {
                     ))}
                   </div>
                 )}
-                <div className="chat-bubble">{m.content}</div>
+                <div className="chat-bubble">{renderChatContent(m.content)}</div>
                 {m.citations && m.citations.length > 0 && (
                   <details className="chat-citations">
                     <summary><BookOpen size={11} /> {m.citations.length} regulatory source(s)</summary>

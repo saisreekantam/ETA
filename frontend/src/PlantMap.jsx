@@ -105,19 +105,30 @@ function orthPath(a, b) {
 
 const PERMIT_SHORT = { hot_work: "HOT WORK", confined_space: "CONFINED", electrical: "ELECTRICAL", general: "GENERAL" };
 
-// Hover tooltip: mini bar chart of the gradient-saliency behind a zone's score --
-// "which sensors drove this number" -- rendered inside the SVG so it tracks the zone
-// boxes without any portal/positioning machinery.
-function SaliencyTooltip({ zone, label, saliency, width, height }) {
+const COUNTERFACTUAL_LABEL = {
+  sensor_evidence: "without sensor evidence",
+  active_permit: "without the permit",
+  worker_presence: "without worker presence",
+};
+
+// Hover tooltip: mini bar chart of the gradient-saliency behind a zone's score ("which
+// sensors drove this number") PLUS the counterfactual re-scores ("would this zone still
+// be flagged without X" -- models/gnn/attribution.py::compute_counterfactuals, an actual
+// re-inference with that evidence zeroed out, not a gradient guess) -- rendered inside
+// the SVG so it tracks the zone boxes without any portal/positioning machinery.
+function SaliencyTooltip({ zone, label, saliency, counterfactuals = [], width, height }) {
   const rows = saliency.slice(0, 5);
+  const cfRows = counterfactuals.slice(0, 3);
   const boxW = 250;
-  const boxH = 30 + rows.length * 15;
+  const cfSectionH = cfRows.length ? 16 + cfRows.length * 15 : 0;
+  const boxH = 30 + rows.length * 15 + cfSectionH;
   // The panel lives in a reserved strip below the equipment rows (see PANEL_BAND), so it
   // never covers a zone box. Horizontally it tracks the hovered zone -- centred under it
   // where possible, clamped to the canvas at the edges.
   const x = Math.max(6, Math.min(zone.x + zone.w / 2 - boxW / 2, width - boxW - 6));
   const y = height - boxH - 8;
   const barMax = 120;
+  const cfBarMax = 90;
 
   return (
     <g className="saliency-tip" pointerEvents="none">
@@ -139,11 +150,36 @@ function SaliencyTooltip({ zone, label, saliency, width, height }) {
           </g>
         );
       })}
+      {cfRows.length > 0 && (
+        <>
+          <text x={x + 10} y={y + 26 + rows.length * 15 + 11} className="saliency-tip-title">
+            Counterfactual · would still flag without…
+          </text>
+          {cfRows.map((c, i) => {
+            const rowY = y + 26 + rows.length * 15 + 20 + i * 15;
+            const pctDrop = Math.round(c.delta * 100); // + = removing this factor drops the score
+            return (
+              <g key={c.removed_factor}>
+                <text x={x + 10} y={rowY + 7} className="saliency-tip-sensor">
+                  {COUNTERFACTUAL_LABEL[c.removed_factor] || c.removed_factor}
+                </text>
+                <rect x={x + 130} y={rowY} width={cfBarMax} height={9} rx={3} className="saliency-tip-track" />
+                <rect x={x + 130} y={rowY} width={Math.max(3, Math.min(1, Math.abs(c.delta)) * cfBarMax)}
+                      height={9} rx={3}
+                      className={pctDrop >= 0 ? "cf-tip-bar-drop" : "cf-tip-bar-rise"} />
+                <text x={x + 130 + cfBarMax + 5} y={rowY + 7.5} className="saliency-tip-pct" textAnchor="start">
+                  {pctDrop >= 0 ? "−" : "+"}{Math.abs(pctDrop)}pt
+                </text>
+              </g>
+            );
+          })}
+        </>
+      )}
     </g>
   );
 }
 
-export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone, permits, workerPresence, sensorSaliencyByZone, flowAttention }) {
+export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone, permits, workerPresence, sensorSaliencyByZone, counterfactualsByZone, flowAttention }) {
   const [hoveredZone, setHoveredZone] = useState(null);
   if (!zones) {
     return (
@@ -334,6 +370,7 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
           zone={boxFor(hoveredZone)}
           label={zones[hoveredZone]?.label}
           saliency={sensorSaliencyByZone[hoveredZone]}
+          counterfactuals={counterfactualsByZone?.[hoveredZone] || []}
           width={width}
           height={height}
         />

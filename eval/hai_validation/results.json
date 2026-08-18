@@ -1,0 +1,203 @@
+{
+  "n_test_windows": 12955,
+  "n_zone_slots": 51820,
+  "n_attack_positive_slots": 579,
+  "per_zone_prevalence": {
+    "P1": 0.0314,
+    "P2": 0.0093,
+    "P3": 0.0039,
+    "P4": 0.0
+  },
+  "accuracy_at_default_threshold": {
+    "note": "flattened over all zone-slots (n_windows x 4 zones); gnn/no_graph_ablation at sigmoid>0.5, baseline at native fixed 4-sigma per-zone alert",
+    "gnn": {
+      "precision": 0.031,
+      "recall": 0.703,
+      "f1": 0.06
+    },
+    "no_graph_ablation": {
+      "precision": 0.056,
+      "recall": 0.342,
+      "f1": 0.096
+    },
+    "baseline_single_sensor": {
+      "precision": 0.013,
+      "recall": 0.478,
+      "f1": 0.025
+    },
+    "pca": "no natural 0.5-style cutoff (unsupervised continuous score) -- see fnr_at_matched_fpr/roc_auc instead",
+    "isolation_forest": "no natural 0.5-style cutoff (unsupervised continuous score) -- see fnr_at_matched_fpr/roc_auc instead",
+    "random_forest": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0
+    },
+    "hybrid": {
+      "precision": 0.051,
+      "recall": 0.44,
+      "f1": 0.091
+    }
+  },
+  "fnr_at_matched_fpr": {
+    "note": "threshold swept on each model's own continuous per-zone score, flattened over zone-slots",
+    "gnn": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.05,
+        "fnr": 0.808,
+        "threshold": 0.8402
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.1,
+        "fnr": 0.691,
+        "threshold": 0.7571
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.2,
+        "fnr": 0.409,
+        "threshold": 0.7124
+      }
+    ],
+    "no_graph_ablation": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.05,
+        "fnr": 0.694,
+        "threshold": 0.5643
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.1,
+        "fnr": 0.572,
+        "threshold": 0.4267
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.2,
+        "fnr": 0.541,
+        "threshold": 0.4266
+      }
+    ],
+    "baseline_single_sensor": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.05,
+        "fnr": 0.876,
+        "threshold": 9.7639
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.1,
+        "fnr": 0.82,
+        "threshold": 8.7961
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.2,
+        "fnr": 0.744,
+        "threshold": 5.1042
+      }
+    ],
+    "pca": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.05,
+        "fnr": 0.696,
+        "threshold": 57.8128
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.1,
+        "fnr": 0.52,
+        "threshold": 55.6635
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.2,
+        "fnr": 0.321,
+        "threshold": 13.1139
+      }
+    ],
+    "isolation_forest": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.05,
+        "fnr": 0.857,
+        "threshold": 0.619
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.1,
+        "fnr": 0.794,
+        "threshold": 0.5757
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.2,
+        "fnr": 0.725,
+        "threshold": 0.5511
+      }
+    ],
+    "random_forest": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.05,
+        "fnr": 0.672,
+        "threshold": 0.0515
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.1,
+        "fnr": 0.489,
+        "threshold": 0.0275
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.2,
+        "fnr": 0.318,
+        "threshold": 0.013
+      }
+    ],
+    "hybrid": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.05,
+        "fnr": 0.636,
+        "threshold": 0.7048
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.1,
+        "fnr": 0.547,
+        "threshold": 0.4777
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.2,
+        "fnr": 0.432,
+        "threshold": 0.2462
+      }
+    ]
+  },
+  "zone_localization": {
+    "n_single_zone_windows": 307,
+    "gnn_top_zone_accuracy": 0.935,
+    "no_graph_ablation_top_zone_accuracy": 0.508,
+    "baseline_single_sensor_top_zone_accuracy": 0.143,
+    "pca_top_zone_accuracy": 0.977,
+    "isolation_forest_top_zone_accuracy": 0.134,
+    "random_forest_top_zone_accuracy": 0.603,
+    "hybrid_top_zone_accuracy": 0.844
+  },
+  "roc_auc": {
+    "gnn": 0.7946,
+    "no_graph_ablation": 0.7479,
+    "baseline_single_sensor": 0.6159,
+    "pca": 0.8046,
+    "isolation_forest": 0.5966,
+    "random_forest": 0.8309,
+    "hybrid": 0.8139
+  }
+}

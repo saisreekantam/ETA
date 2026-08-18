@@ -1,6 +1,11 @@
-# CI/CD: sanity-check the code, build+push both images to GHCR, then (only if a cluster
-# credential is configured) roll the Kubernetes deployment. Deploy is a no-op on forks
-# and PRs -- images build everywhere, only main with KUBE_CONFIG_B64 set actually ships.
+# CI/CD: sanity-check the code, build+push both images to GHCR, then roll a deployment
+# on whichever target has credentials configured -- both are no-ops on forks/PRs, and
+# no-ops on main until you add the relevant secrets (images still build either way):
+#   - `deploy`      : any generic cluster, via a raw kubeconfig (KUBE_CONFIG_B64)
+#   - `deploy-gke`  : Google Cloud/GKE specifically (GCP_PROJECT_ID, GCP_SA_KEY,
+#                     GKE_CLUSTER, GKE_ZONE) -- see deploy/gcp/setup-gke.sh for the
+#                     one-time cluster bring-up and README's GCP section for the
+#                     service-account setup this secret pair needs.
 name: build-and-deploy
 
 on:
@@ -81,6 +86,44 @@ jobs:
           KUBECONFIG: ${{ runner.temp }}/kubeconfig
         run: |
           kubectl apply -k deploy/k8s/base
+          kubectl -n industrial-safety set image deployment/backend backend=${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          kubectl -n industrial-safety set image deployment/frontend frontend=${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          kubectl -n industrial-safety rollout status deployment/backend --timeout=10m
+          kubectl -n industrial-safety rollout status deployment/frontend --timeout=5m
+
+  deploy-gke:
+    needs: build-images
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # unused by the JSON-key auth path below, harmless to request;
+                        # switch google-github-actions/auth to workload_identity_provider
+                        # + service_account inputs (drop credentials_json) to go keyless
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for GCP credentials
+        id: gcp
+        run: |
+          if [ -n "${{ secrets.GCP_SA_KEY }}" ] && [ -n "${{ vars.GKE_CLUSTER }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No GCP_SA_KEY secret / GKE_CLUSTER var -- skipping GKE deploy (images are pushed)."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: google-github-actions/auth@v2
+        if: steps.gcp.outputs.configured == 'true'
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/get-gke-credentials@v2
+        if: steps.gcp.outputs.configured == 'true'
+        with:
+          cluster_name: ${{ vars.GKE_CLUSTER }}
+          location: ${{ vars.GKE_ZONE || vars.GKE_REGION }}
+      - name: Roll deployment
+        if: steps.gcp.outputs.configured == 'true'
+        run: |
+          kubectl apply -k deploy/k8s/overlays/gke
           kubectl -n industrial-safety set image deployment/backend backend=${{ env.BACKEND_IMAGE }}:${{ github.sha }}
           kubectl -n industrial-safety set image deployment/frontend frontend=${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
           kubectl -n industrial-safety rollout status deployment/backend --timeout=10m

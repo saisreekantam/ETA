@@ -1,0 +1,114 @@
+{
+  "n_test_runs": 120,
+  "n_compound_positive": 30,
+  "note": "scored at each run's true hazard zone, matching eval/metrics.py's compute_accuracy_comparison; reference numbers from the paper: GNN P=1.00 R=1.00 F1=1.00, naive z-score baseline P=0.37 R=1.00 F1=0.54, GNN zone-localization=100%, baseline=23.3%",
+  "accuracy_at_default_threshold": {
+    "pca": "unsupervised continuous score, no natural 0.5-style cutoff",
+    "isolation_forest": "unsupervised continuous score, no natural 0.5-style cutoff",
+    "random_forest_sensor_only": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    },
+    "random_forest_full_context": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0
+    }
+  },
+  "fnr_at_matched_fpr": {
+    "pca": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.056,
+        "fnr": 0.8,
+        "threshold": 592.2465
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.111,
+        "fnr": 0.8,
+        "threshold": 384.2704
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.211,
+        "fnr": 0.433,
+        "threshold": 2.428
+      }
+    ],
+    "isolation_forest": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 1.0,
+        "fnr": 0.0,
+        "threshold": 0.5
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 1.0,
+        "fnr": 0.0,
+        "threshold": 0.5
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 1.0,
+        "fnr": 0.0,
+        "threshold": 0.5
+      }
+    ],
+    "random_forest_sensor_only": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.056,
+        "fnr": 0.0,
+        "threshold": 0.13
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.111,
+        "fnr": 0.0,
+        "threshold": 0.0231
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 1.0,
+        "fnr": 0.0,
+        "threshold": 0.0
+      }
+    ],
+    "random_forest_full_context": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.089,
+        "fnr": 0.0,
+        "threshold": 0.01
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.122,
+        "fnr": 0.0,
+        "threshold": 0.0067
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 1.0,
+        "fnr": 0.0,
+        "threshold": 0.0
+      }
+    ]
+  },
+  "zone_localization_top_accuracy": {
+    "pca": 0.2,
+    "isolation_forest": 0.6,
+    "random_forest_sensor_only": 1.0,
+    "random_forest_full_context": 1.0
+  },
+  "n_compound_test_runs_for_localization": 30,
+  "roc_auc": {
+    "pca": 0.7622,
+    "isolation_forest": 0.5589,
+    "random_forest_sensor_only": 1.0,
+    "random_forest_full_context": 1.0
+  }
+}

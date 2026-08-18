@@ -134,6 +134,12 @@ export async function getBenchmarks() {
   return res.json();
 }
 
+export async function getGeneralizationBenchmarks() {
+  const res = await apiFetch("/benchmarks/generalization");
+  if (!res.ok) throw new Error(`Generalization benchmarks failed: ${res.status}`);
+  return res.json();
+}
+
 export async function getAlerts({ unackedOnly = false } = {}) {
   const res = await apiFetch(`/alerts${unackedOnly ? "?unacked_only=true" : ""}`);
   if (!res.ok) throw new Error(`Alerts failed: ${res.status}`);
@@ -146,6 +152,29 @@ export async function ackAlert(id, name) {
     body: JSON.stringify({ acknowledged_by: name }),
   });
   if (!res.ok) throw new Error(`Ack failed: ${res.status}`);
+  return res.json();
+}
+
+/** Real, time-scoped permit lookup for a zone -- replaces LiveMonitoring's old
+ * self-reported "has permit" checkbox with what the server actually finds. */
+export async function getActivePermits(zoneKey) {
+  const res = await apiFetch(`/zones/${encodeURIComponent(zoneKey)}/active-permits`);
+  if (!res.ok) throw new Error(`Active permits failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getBreakMode() {
+  const res = await apiFetch("/break-mode");
+  if (!res.ok) throw new Error(`Break mode fetch failed: ${res.status}`);
+  return res.json();
+}
+
+export async function setBreakMode(active, operatorName) {
+  const res = await apiFetch("/break-mode", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ active, operator_name: operatorName || null }),
+  });
+  if (!res.ok) throw new Error(`Break mode update failed: ${res.status}`);
   return res.json();
 }
 
@@ -162,4 +191,14 @@ export async function sendChat(question, history = []) {
 
 export function evidenceUrl(runId) {
   return `${API_BASE}/runs/${runId}/evidence?api_key=${encodeURIComponent(getApiKey())}`;
+}
+
+/** Every alert this facility has raised, as a CSV download -- for offline analysis (see
+ * server/alerts.py::export_alerts_csv). Plain link href, not apiFetch, same reasoning as
+ * evidenceUrl: the browser navigates to this directly, so the key rides as a query param. */
+export function alertsExportUrl() {
+  const facility = getFacility();
+  const params = new URLSearchParams({ api_key: getApiKey() });
+  if (facility?.id) params.set("facility_id", facility.id);
+  return `${API_BASE}/alerts/export?${params.toString()}`;
 }

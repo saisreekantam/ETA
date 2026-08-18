@@ -15,7 +15,7 @@ import torch
 from torch_geometric.loader import DataLoader
 
 from agents.state import PipelineState, ZoneRiskScore
-from models.gnn.attribution import explain_zone
+from models.gnn.attribution import compute_counterfactuals, explain_zone
 from models.gnn.baseline_threshold import THRESHOLD_SIGMA, ZONE_TO_SENSOR_COLS
 from models.gnn.graph_builder import ZONE_VOCAB, build_graph
 from models.gnn.model import CompoundRiskGNN
@@ -92,16 +92,22 @@ def compound_risk_node(state: PipelineState) -> dict:
 
     zone_risk_scores = []
     for i, zone in enumerate(ZONE_VOCAB):
-        explanation = explain_zone(_model, graph, zone) if zone != "control_room" else {
-            "contributing_sensors": [], "sensor_saliency": [],
-            "permit_saliency": 0.0, "presence_saliency": 0.0,
-        }
+        if zone != "control_room":
+            explanation = explain_zone(_model, graph, zone)
+            counterfactuals = compute_counterfactuals(_model, graph, zone)
+        else:
+            # no sensor cluster, no process-flow edges -- explanation would be
+            # attributing a score that's ~0 by construction (see graph_builder docstring)
+            explanation = {"contributing_sensors": [], "sensor_saliency": [],
+                            "permit_saliency": 0.0, "presence_saliency": 0.0}
+            counterfactuals = []
         zone_risk_scores.append(ZoneRiskScore(
             zone=zone,
             compound_risk_score=round(probs[i], 4),
             baseline_risk_score=round(baseline_scores.get(zone, 0.0), 4),
             contributing_sensors=explanation["contributing_sensors"],
             sensor_saliency=explanation["sensor_saliency"],
+            counterfactuals=counterfactuals,
             contributing_faults=None,
         ))
 

@@ -1,0 +1,18 @@
+{
+  "held_out_scenario": "s2_condenser_pressure",
+  "held_out_zone": "condenser_zone",
+  "note": "model never saw ANY condenser_zone example (positive or negative) during training; GNN predictions come from shared per-edge-type weights transferred from the other zones; pooled RF is one shared model across zones with zone-width-agnostic features, the fairest non-graph competitor. Precision/recall/F1 at the 0.5 threshold are known to be uninformative here (the model's score scale for a never-seen zone doesn't match the threshold calibrated on training zones) -- AUC is the meaningful number.",
+  "n_test_runs": 200,
+  "gnn": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "auc": 0.9872
+  },
+  "pooled_random_forest": {
+    "precision": 0.0,
+    "recall": 0.0,
+    "f1": 0.0,
+    "auc": 0.2635
+  }
+}

@@ -90,6 +90,20 @@ Three tiers, same containers throughout:
 
 Scaling note: the frontend scales horizontally; the backend is pinned to 1 replica while live vision sessions and watcher threads are in-process state — the documented path to N replicas is moving session state to Redis (already in the stack for that purpose).
 
+### Everything on Google Cloud (GKE)
+
+One cluster, no other managed services required — Postgres/pgvector and Ollama stay self-hosted in-cluster (on GCE Persistent Disks) exactly as in `deploy/k8s/base`, so there's nothing extra to provision or separately bill:
+
+1. **One-time bring-up** (needs `gcloud` authenticated against a billing-enabled project):
+   ```
+   PROJECT_ID=your-project ./deploy/gcp/setup-gke.sh
+   ```
+   Creates the cluster, a small CPU node pool, an autoscaling (0→2) spot GPU pool (`g2-standard-8` / 1× L4 by default — comfortably fits `qwen2.5:14b` and the RT-DETR detectors), installs the NVIDIA device plugin and ingress-nginx, then applies `deploy/k8s/overlays/gke` (the base stack + GPU scheduling for Ollama and the backend).
+2. **DNS** — point your domain at the ingress-nginx `LoadBalancer` external IP (`kubectl -n ingress-nginx get svc ingress-nginx-controller`), then set that host in `deploy/k8s/overlays/gke/kustomization.yaml`'s ingress patch and re-apply. No domain yet? Curl the IP directly with a `Host` header to smoke-test.
+3. **CI/CD** — the `deploy-gke` job in `deploy.yml` activates once you add: repo secret `GCP_SA_KEY` (a service-account JSON key with `roles/container.developer`) and repo variables `GKE_CLUSTER` + `GKE_ZONE` (or `GKE_REGION`). From then on, every push to `main` rebuilds both images and rolls the GKE deployment automatically. (Prefer keyless auth? Swap `google-github-actions/auth`'s `credentials_json` input for `workload_identity_provider` + `service_account` — the job is already structured for either.)
+
+Cost note: the GPU pool is spot and scales to zero when idle, but an L4 instance is real money while it's up — stop the demo cluster (`gcloud container clusters resize eta-safety --node-pool gpu-pool --num-nodes 0 --zone <zone>`) between sessions rather than leaving it running.
+
 ## Repo layout
 
 ```

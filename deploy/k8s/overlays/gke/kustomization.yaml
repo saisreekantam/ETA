@@ -1,0 +1,64 @@
+# GKE overlay: everything on Google Cloud, one cluster. Reuses deploy/k8s/base as-is
+# (Postgres/pgvector and Ollama stay self-hosted in-cluster on GCE Persistent Disks --
+# GKE's default StorageClass is already ReadWriteOnce PD, so the base PVCs need no
+# changes) and layers on GKE-specific scheduling:
+#   - Ollama + backend get an nodeSelector/toleration for a GPU node pool
+#     (cloud.google.com/gke-accelerator), so the LLM and RT-DETR inference run on-GPU.
+#   - Ingress stays ingress-nginx (portable, keeps the /api rewrite-target trick from
+#     base) rather than GKE's native GCE ingress, which doesn't support the same
+#     path-rewrite semantics -- install it once with:
+#       helm install ingress-nginx ingress-nginx/ingress-nginx -n ingress-nginx --create-namespace
+#
+# Apply with: kubectl apply -k deploy/k8s/overlays/gke
+# (See deploy/gcp/setup-gke.sh for the one-time cluster + node pool + ingress bring-up.)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+patches:
+  - target:
+      kind: Deployment
+      name: ollama
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources/limits/nvidia.com~1gpu
+        value: 1
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          cloud.google.com/gke-accelerator: nvidia-l4
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/resources/limits/nvidia.com~1gpu
+        value: 1
+      - op: add
+        path: /spec/template/spec/containers/0/env
+        value:
+          - name: OLLAMA_NUM_GPU
+            value: "999"
+      - op: add
+        path: /spec/template/spec/nodeSelector
+        value:
+          cloud.google.com/gke-accelerator: nvidia-l4
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - key: nvidia.com/gpu
+            operator: Exists
+            effect: NoSchedule
+  - target:
+      kind: Ingress
+      name: industrial-safety
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: PLACEHOLDER.example.com   # set to your domain, or drop this patch to use the ingress-nginx LoadBalancer IP directly

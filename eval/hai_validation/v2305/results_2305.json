@@ -1,0 +1,98 @@
+{
+  "n_test_windows": 5755,
+  "n_zone_slots": 23020,
+  "n_attack_positive_slots": 552,
+  "per_zone_prevalence": {
+    "P1": 0.0573,
+    "P2": 0.0375,
+    "P3": 0.001,
+    "P4": 0.0
+  },
+  "note_p2_p3_train_support": "P2 has 0 and P3 has 0 positive training windows in this split's train pool (see dataset_2305.py output) -- per-zone results for P2/P3 test zero-shot generalization, not learned detection",
+  "accuracy_at_default_threshold": {
+    "gnn": {
+      "precision": 0.075,
+      "recall": 0.406,
+      "f1": 0.126
+    },
+    "baseline_single_sensor": {
+      "precision": 0.061,
+      "recall": 0.471,
+      "f1": 0.109
+    },
+    "pca": "no natural 0.5-style cutoff (unsupervised continuous score)"
+  },
+  "fnr_at_matched_fpr": {
+    "gnn": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.05,
+        "fnr": 0.915,
+        "threshold": 0.8335
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.1,
+        "fnr": 0.719,
+        "threshold": 0.7794
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.2,
+        "fnr": 0.471,
+        "threshold": 0.0817
+      }
+    ],
+    "baseline_single_sensor": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.051,
+        "fnr": 0.645,
+        "threshold": 9.6498
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.101,
+        "fnr": 0.63,
+        "threshold": 6.1074
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.2,
+        "fnr": 0.453,
+        "threshold": 3.524
+      }
+    ],
+    "pca": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.05,
+        "fnr": 0.538,
+        "threshold": 0.5213
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.1,
+        "fnr": 0.388,
+        "threshold": 0.4469
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.2,
+        "fnr": 0.219,
+        "threshold": 0.3101
+      }
+    ]
+  },
+  "zone_localization": {
+    "n_single_zone_windows": 108,
+    "gnn_top_zone_accuracy": 1.0,
+    "baseline_single_sensor_top_zone_accuracy": 0.093,
+    "pca_top_zone_accuracy": 0.157
+  },
+  "roc_auc": {
+    "gnn": 0.7175,
+    "baseline_single_sensor": 0.7477,
+    "pca": 0.873
+  }
+}

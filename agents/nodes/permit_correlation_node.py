@@ -52,6 +52,32 @@ def _ppe_note(state: PipelineState, zone: str) -> str | None:
     return None
 
 
+def _ppe_violations_independent(state: PipelineState, risk_by_zone: dict[str, float]) -> list[PermitViolation]:
+    """Mirrors _zone_intrusion_violations' independence: a PPE violation is real evidence
+    on its own, not just a corroborating note on a sensor-driven violation. Only called
+    when zone_risk_scores is empty (a live CCTV-only trigger with no GNN score available,
+    see agents/vision_pipeline.py) -- in that case _ppe_note above can never fire (its
+    outer permit loop requires a non-None risk score), so this is the only source of PPE
+    evidence rather than a duplicate of it. Guarding on empty zone_risk_scores keeps the
+    sensor-benchmark path's violation count/output unchanged."""
+    violations = []
+    for det in state["vision_detections"]:
+        if "head" not in det["detections"] or "helmet" in det["detections"]:
+            continue
+        zone_risk = risk_by_zone.get(det["zone"])
+        severity = _severity_for(zone_risk) if zone_risk is not None else "medium"
+        severity = max(severity, "medium", key=lambda s: _SEVERITY_ORDER.index(s))
+        n = det["detections"].count("head")
+        violations.append(PermitViolation(
+            permit_id="(none)",
+            zone=det["zone"],
+            reason=(f"CCTV evidence: {n} worker(s) detected without helmets in {det['zone']} "
+                    f"(RT-DETR confidence {max(det['confidence']):.2f})."),
+            severity=severity,
+        ))
+    return violations
+
+
 def _zone_intrusion_violations(state: PipelineState, risk_by_zone: dict[str, float]) -> list[PermitViolation]:
     """A person detected in a zone with no active permit covering it is a real compliance
     issue on its own (see vision/detectors/zone_intrusion.py), even when sensor-derived
@@ -108,6 +134,8 @@ def permit_correlation_node(state: PipelineState) -> dict:
             ))
 
     violations.extend(_zone_intrusion_violations(state, risk_by_zone))
+    if not state["zone_risk_scores"]:
+        violations.extend(_ppe_violations_independent(state, risk_by_zone))
 
     audit_entry = f"permit_correlation_node: {len(violations)} violation(s) flagged"
     return {"permit_violations": violations, "audit_log": state["audit_log"] + [audit_entry]}

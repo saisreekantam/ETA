@@ -167,7 +167,19 @@ def test_device(device_id: str, db: Session = Depends(get_db)):
 
     started = time.perf_counter()
     cap = cv2.VideoCapture(source)
-    ok, frame = cap.read() if cap.isOpened() else (False, None)
+    ok, frame = False, None
+    if cap.isOpened():
+        # Discard the first few frames: on macOS (AVFoundation) and most USB webcams,
+        # a read() taken immediately after opening returns before auto-exposure/
+        # auto-white-balance has converged, so the "test connection" snapshot comes
+        # back nearly black even though the camera opened and is actually fine. A
+        # short warm-up (harmless no-op for RTSP/file sources, which are already
+        # exposure-stable) fixes it without a fixed sleep that'd needlessly slow down
+        # sources that don't need it.
+        for _ in range(8):
+            ok, frame = cap.read()
+            if not ok:
+                break
     latency_ms = round((time.perf_counter() - started) * 1000)
     cap.release()
 

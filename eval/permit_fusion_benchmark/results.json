@@ -1,0 +1,146 @@
+{
+  "n_test_runs": 150,
+  "n_true_positive": 30,
+  "note": "scored at each run's true hazard zone; z_score/pca/isolation_forest/random_forest_sensor_only see ONLY sensor window stats (same info as z_score baseline); random_forest_full_context also sees window-relative permit/presence overlap (same info as the GNN)",
+  "diagnostic_sensor_only_rf": {
+    "auc_any_fault_vs_no_fault": 1.0,
+    "auc_true_positive_vs_other_fault_conditions": 0.5489,
+    "interpretation": "high first number + near-0.5 second number confirms sensor-only CAN detect 'a fault exists' but CANNOT distinguish true_positive from the other two fault-having conditions, as designed"
+  },
+  "accuracy_at_default_threshold": {
+    "z_score": {
+      "precision": 0.345,
+      "recall": 0.967,
+      "f1": 0.509
+    },
+    "pca": "unsupervised continuous score, no natural 0.5-style cutoff",
+    "isolation_forest": "unsupervised continuous score, no natural 0.5-style cutoff",
+    "random_forest_sensor_only": {
+      "precision": 0.333,
+      "recall": 0.767,
+      "f1": 0.465
+    },
+    "random_forest_full_context": {
+      "precision": 1.0,
+      "recall": 0.967,
+      "f1": 0.983
+    }
+  },
+  "fnr_at_matched_fpr": {
+    "z_score": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.1,
+        "fnr": 0.8,
+        "threshold": 20.5541
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.108,
+        "fnr": 0.767,
+        "threshold": 17.5211
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.217,
+        "fnr": 0.567,
+        "threshold": 10.5415
+      }
+    ],
+    "pca": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.058,
+        "fnr": 0.967,
+        "threshold": 1770.0957
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.117,
+        "fnr": 0.767,
+        "threshold": 2.4264
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.217,
+        "fnr": 0.567,
+        "threshold": 1.5692
+      }
+    ],
+    "isolation_forest": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 1.0,
+        "fnr": 0.0,
+        "threshold": 0.5
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 1.0,
+        "fnr": 0.0,
+        "threshold": 0.5
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 1.0,
+        "fnr": 0.0,
+        "threshold": 0.5
+      }
+    ],
+    "random_forest_sensor_only": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.058,
+        "fnr": 0.9,
+        "threshold": 0.9478
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.117,
+        "fnr": 0.733,
+        "threshold": 0.8815
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.258,
+        "fnr": 0.367,
+        "threshold": 0.7792
+      }
+    ],
+    "random_forest_full_context": [
+      {
+        "target_fpr": 0.05,
+        "achieved_fpr": 0.058,
+        "fnr": 0.0,
+        "threshold": 0.0445
+      },
+      {
+        "target_fpr": 0.1,
+        "achieved_fpr": 0.125,
+        "fnr": 0.0,
+        "threshold": 0.0116
+      },
+      {
+        "target_fpr": 0.2,
+        "achieved_fpr": 0.217,
+        "fnr": 0.0,
+        "threshold": 0.009
+      }
+    ]
+  },
+  "zone_localization_top_accuracy": {
+    "z_score": 0.4,
+    "pca": 0.4,
+    "isolation_forest": 0.6,
+    "random_forest_sensor_only": 1.0,
+    "random_forest_full_context": 1.0
+  },
+  "n_true_positive_test_runs_for_localization": 30,
+  "roc_auc": {
+    "z_score": 0.7542,
+    "pca": 0.7478,
+    "isolation_forest": 0.4272,
+    "random_forest_sensor_only": 0.7725,
+    "random_forest_full_context": 1.0
+  }
+}

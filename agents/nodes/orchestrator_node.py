@@ -29,6 +29,11 @@ OLLAMA_NUM_GPU = settings.ollama_num_gpu
 
 ESCALATION_BANDS = [(0.9, "emergency"), (0.7, "alert"), (0.5, "monitor"), (0.0, "none")]
 
+# Used only when zone_risk_scores is empty (a live CCTV-only trigger with no GNN score --
+# see agents/vision_pipeline.py) -- escalation then comes from the violation's own
+# severity instead of a compound-risk score that doesn't exist.
+SEVERITY_TO_ESCALATION = {"critical": "emergency", "high": "alert", "medium": "monitor", "low": "none"}
+
 
 def _escalation_for(max_score: float) -> str:
     for threshold, label in ESCALATION_BANDS:
@@ -55,14 +60,12 @@ def _call_llm(prompt: str, url: str | None = None, model: str | None = None,
         return f"[LLM unavailable ({e}) -- falling back to template report below]"
 
 
-def orchestrator_node(state: PipelineState) -> dict:
-    if not state["permit_violations"]:
-        audit_entry = "orchestrator_node: no permit violations, no report generated"
-        return {"escalation_level": "none", "audit_log": state["audit_log"] + [audit_entry]}
-
-    severity_rank = {"critical": 3, "high": 2, "medium": 1, "low": 0}
-    top_violation = max(state["permit_violations"], key=lambda v: severity_rank[v["severity"]])
-    permit_type = next((p["permit_type"] for p in state["permits"] if p["permit_id"] == top_violation["permit_id"]), "")
+def build_incident_prompt(top_violation: dict, permits: list) -> tuple[str, list]:
+    """RAG retrieval + prompt construction, split out from orchestrator_node so
+    agents/vision_pipeline.py can build the same RAG-grounded prompt WITHOUT calling the
+    LLM synchronously (see its docstring -- CCTV alerts must persist in well under a
+    second; the LLM call happens asynchronously afterward, using this exact prompt)."""
+    permit_type = next((p["permit_type"] for p in permits if p["permit_id"] == top_violation["permit_id"]), "")
     query = f"{permit_type} permit {top_violation['zone']} precautions hazard"
     citations = retrieve(query, k=3)
 
@@ -80,10 +83,24 @@ Retrieved regulatory text (cite these, and only these):
 {citation_block}
 
 Write the incident analysis now."""
+    return prompt, citations
+
+
+def orchestrator_node(state: PipelineState) -> dict:
+    if not state["permit_violations"]:
+        audit_entry = "orchestrator_node: no permit violations, no report generated"
+        return {"escalation_level": "none", "audit_log": state["audit_log"] + [audit_entry]}
+
+    severity_rank = {"critical": 3, "high": 2, "medium": 1, "low": 0}
+    top_violation = max(state["permit_violations"], key=lambda v: severity_rank[v["severity"]])
+    prompt, citations = build_incident_prompt(top_violation, state["permits"])
 
     report = _call_llm(prompt)
-    max_score = max(r["compound_risk_score"] for r in state["zone_risk_scores"])
-    escalation = _escalation_for(max_score)
+    if state["zone_risk_scores"]:
+        max_score = max(r["compound_risk_score"] for r in state["zone_risk_scores"])
+        escalation = _escalation_for(max_score)
+    else:
+        escalation = SEVERITY_TO_ESCALATION[top_violation["severity"]]
 
     retrieved = [RetrievedCitation(source=c.citation, text=c.text, score=c.score) for c in citations]
     audit_entry = (f"orchestrator_node: escalation={escalation}, "

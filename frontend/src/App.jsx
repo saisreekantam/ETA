@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ShieldAlert, Radio, PlayCircle, Camera, ScrollText, AlertTriangle,
   FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight, RefreshCw, Info,
-  Sun, Moon, HardDrive, BarChart3, Bell, LogOut, FileDown, Rss, Square, MessageSquare,
+  Sun, Moon, HardDrive, BarChart3, Bell, LogOut, FileDown, Rss, Square, MessageSquare, Coffee,
 } from "lucide-react";
-import { API_BASE, ackAlert, evidenceUrl, getAlerts, getFacility, getZones, getScenarios, liveStreamUrl, runScenario, setApiKey, setFacility } from "./api";
+import { API_BASE, ackAlert, alertsExportUrl, evidenceUrl, getAlerts, getBreakMode, getFacility, getZones, getScenarios, liveStreamUrl, runScenario, setApiKey, setBreakMode, setFacility } from "./api";
+import AlertBanner from "./AlertBanner";
 import ChatPanel from "./ChatPanel";
 import PlantMap from "./PlantMap";
 import Replay from "./Replay";
@@ -53,6 +54,12 @@ export default function App() {
   const [liveFrame, setLiveFrame] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [alertsOpen, setAlertsOpen] = useState(false);
+  // Guards a poll-vs-ack race: the 2s poll can be in flight (querying the pre-ack state)
+  // when an acknowledge completes, and land AFTER, silently reintroducing an alert the
+  // operator just cleared. Every id added here is permanently filtered out of incoming
+  // poll results, regardless of timing.
+  const ackedIds = useRef(new Set());
+  const [onBreak, setOnBreak] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
 
   // Reflect the theme onto <html data-theme> so the CSS variable overrides apply, and
@@ -82,12 +89,18 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
-  // Alert inbox: poll for unacknowledged escalations so the bell reflects reality even
-  // if the run that raised them happened in another tab/session.
+  // Alert inbox: poll for unacknowledged escalations so the bell (and the on-screen
+  // AlertBanner) reflect reality even if the run that raised them happened in another
+  // tab/session. 2s (was 20s, then 5s) since the banner is now the primary visible
+  // surface for a live pitch and a CCTV detection should be visibly acknowledged within
+  // a couple of seconds -- and it doubles as the poll that picks up async reasoning once
+  // server/alerts.py's background LLM call finishes.
   useEffect(() => {
-    const load = () => getAlerts({ unackedOnly: true }).then(setAlerts).catch(() => {});
+    const load = () => getAlerts({ unackedOnly: true })
+      .then((data) => setAlerts(data.filter((a) => !ackedIds.current.has(a.id))))
+      .catch(() => {});
     load();
-    const t = setInterval(load, 20000);
+    const t = setInterval(load, 2000);
     return () => clearInterval(t);
   }, []);
 
@@ -101,12 +114,35 @@ export default function App() {
     return () => { es.close(); setLiveFrame(null); };
   }, [liveOn, selectedRunId]);
 
+  // Break-mode state lives server-side (in-memory, per facility -- server/break_mode.py)
+  // so it reflects reality across reloads/tabs, not just this one session.
+  useEffect(() => {
+    getBreakMode().then((s) => setOnBreak(s.active)).catch(() => {});
+  }, []);
+
   async function handleAck(alert) {
     const name = localStorage.getItem("isi_officer") || window.prompt("Acknowledge as (your name):", "Safety Officer");
     if (!name) return;
     localStorage.setItem("isi_officer", name);
-    await ackAlert(alert.id, name).catch(() => {});
+    // Recorded BEFORE the await: closes the race where an in-flight poll (querying the
+    // pre-ack state) resolves after this and would otherwise reintroduce the alert.
+    ackedIds.current.add(alert.id);
     setAlerts((a) => a.filter((x) => x.id !== alert.id));
+    await ackAlert(alert.id, name).catch(() => {});
+  }
+
+  async function handleToggleBreak() {
+    if (onBreak) {
+      await setBreakMode(false).catch(() => {});
+      setOnBreak(false);
+      return;
+    }
+    const name = localStorage.getItem("isi_officer") || window.prompt(
+      "Stepping away — who should urgent alerts be routed to?", "Safety Officer");
+    if (!name) return;
+    localStorage.setItem("isi_officer", name);
+    await setBreakMode(true, name).catch(() => {});
+    setOnBreak(true);
   }
 
   async function handleRun(runId, { force = false, ensureSingle = false } = {}) {
@@ -223,6 +259,16 @@ export default function App() {
             <Activity size={13} /> System online
           </div>
           <button
+            className={onBreak ? "icon-btn break-toggle active" : "icon-btn break-toggle"}
+            onClick={handleToggleBreak}
+            aria-label={onBreak ? "On break — click when back" : "Stepping away? Turn on break mode"}
+            title={onBreak
+              ? "On break — urgent alerts are being escalated via webhook. Click when you're back."
+              : "Taking a break? Alert/emergency escalations will be pushed urgently while you're away."}
+          >
+            <Coffee size={16} />
+          </button>
+          <button
             className={chatOpen ? "icon-btn chat-toggle active" : "icon-btn chat-toggle"}
             onClick={() => setChatOpen((v) => !v)}
             aria-label="Operator chat"
@@ -231,14 +277,17 @@ export default function App() {
             <MessageSquare size={16} />
           </button>
           <div className="alert-bell-wrap">
+            {/* Deliberately calm -- no red badge/glow here. The AlertBanner is the one
+                thing that should grab attention for a new alert; the bell is a manual
+                reference point (full unacknowledged list, open on click) that shouldn't
+                also visually compete for attention the moment the banner already is. */}
             <button
-              className={alerts.length ? "icon-btn alert-bell has-alerts" : "icon-btn alert-bell"}
+              className="icon-btn alert-bell"
               onClick={() => setAlertsOpen((v) => !v)}
-              aria-label={`${alerts.length} unacknowledged alerts`}
+              aria-label={`Alert inbox, ${alerts.length} unacknowledged`}
               title="Alert inbox"
             >
               <Bell size={16} />
-              {alerts.length > 0 && <span className="alert-count">{alerts.length}</span>}
             </button>
             <AnimatePresence>
               {alertsOpen && (
@@ -247,7 +296,12 @@ export default function App() {
                   initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.18 }}
                 >
-                  <div className="alert-dropdown-head">Unacknowledged alerts</div>
+                  <div className="alert-dropdown-head">
+                    Unacknowledged alerts
+                    <a className="alert-export-link" href={alertsExportUrl()} title="Download every alert this facility has raised as CSV, for offline analysis">
+                      <FileDown size={12} /> Export CSV
+                    </a>
+                  </div>
                   {alerts.length === 0 && <div className="alert-empty">All clear — nothing awaiting acknowledgment.</div>}
                   {alerts.map((a) => (
                     <div key={a.id} className={`alert-item level-${a.level}`}>
@@ -285,6 +339,12 @@ export default function App() {
           </button>
         </div>
       </motion.header>
+
+      {/* Hidden while the bell dropdown is open -- both surfaces show the same
+          unacknowledged alerts, anchored to the same corner, so showing both at once is
+          redundant screen space and the banner (needs pointer-events for its own
+          buttons) would otherwise sit on top of and block clicks on the dropdown. */}
+      {!alertsOpen && <AlertBanner alerts={alerts} onAck={handleAck} />}
 
       <div className={mode === "single" || mode === "replay" ? "layout" : "layout no-sidebar"}>
         {(mode === "single" || mode === "replay") && (
@@ -394,6 +454,9 @@ export default function App() {
                       workerPresence={mode === "single" && result ? result.worker_presence : null}
                       sensorSaliencyByZone={mode === "single" && result
                         ? Object.fromEntries(result.zone_risk_scores.map((z) => [z.zone, z.sensor_saliency || []]))
+                        : null}
+                      counterfactualsByZone={mode === "single" && result
+                        ? Object.fromEntries(result.zone_risk_scores.map((z) => [z.zone, z.counterfactuals || []]))
                         : null}
                       flowAttention={mode === "single" && result ? result.flow_attention : null}
                     />

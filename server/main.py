@@ -30,12 +30,12 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from agents.graph import build_pipeline  # noqa: E402
 from db.auth import verify_api_key  # noqa: E402
-from db.models import Alert, AuditLogEntry, Facility, IncidentReport, PermitViolation, Run, Zone, ZoneRiskScore  # noqa: E402
+from db.models import AuditLogEntry, Facility, IncidentReport, PermitViolation, Run, Zone, ZoneRiskScore  # noqa: E402
 from db.session import SessionLocal, get_db  # noqa: E402
 from db.settings import settings  # noqa: E402
 from scripts.demo_scenario_runner import load_state_for_run  # noqa: E402
 from scripts.replay import compute_replay_trace  # noqa: E402
-from server.alerts import fire_webhook  # noqa: E402
+from server.alerts import persist_alert  # noqa: E402
 from server.alerts import router as alerts_router  # noqa: E402
 from server.benchmarks import router as benchmarks_router  # noqa: E402
 from server.chat import router as chat_router  # noqa: E402
@@ -44,6 +44,7 @@ from server.devices import router as devices_router  # noqa: E402
 from server.devices import start_simulator  # noqa: E402
 from server.live import router as live_router  # noqa: E402
 from server.live_watch import make_vision_alert_hook, start_device_watcher  # noqa: E402
+from server.permit_lookup import get_active_permits_for_zone  # noqa: E402
 from vision.live_inference import create_session, get_session, stop_session  # noqa: E402
 
 UPLOAD_DIR = REPO_ROOT / "data" / "vision_uploads"
@@ -129,6 +130,17 @@ def get_zones(facility_id: str | None = None, db: Session = Depends(get_db)):
             for z in zones}
 
 
+@app.get("/zones/{zone_key}/active-permits")
+def get_active_permits(zone_key: str, facility_id: str | None = None, db: Session = Depends(get_db)):
+    """Real, time-scoped permit lookup for a zone -- what LiveMonitoring.jsx now shows
+    instead of a self-reported checkbox (see agents/vision_pipeline.py)."""
+    fid = _resolve_facility_id(db, facility_id)
+    permits = get_active_permits_for_zone(db, fid, zone_key)
+    return [{"permit_id": p.external_permit_id, "permit_type": p.permit_type,
+             "valid_from": p.valid_from.isoformat() if p.valid_from else None,
+             "valid_to": p.valid_to.isoformat() if p.valid_to else None} for p in permits]
+
+
 @app.get("/scenarios")
 def get_scenarios(facility_id: str | None = None, db: Session = Depends(get_db)):
     fid = _resolve_facility_id(db, facility_id)
@@ -199,6 +211,7 @@ def _read_stored_result(db: Session, fid: uuid.UUID, run_id: str, run_row: Run |
             "zone": key_by_zone_id.get(s.zone_id), "compound_risk_score": s.compound_risk_score,
             "baseline_risk_score": s.baseline_risk_score, "contributing_sensors": s.contributing_sensors,
             "sensor_saliency": s.sensor_saliency or [],
+            "counterfactuals": s.counterfactuals or [],
         } for s in scores],
         "permit_violations": [{
             "zone": v.zone.key, "reason": v.reason, "severity": v.severity,
@@ -241,6 +254,7 @@ def run_scenario(run_id: str, force: bool = False, facility_id: str | None = Non
                 compound_risk_score=score["compound_risk_score"], baseline_risk_score=score["baseline_risk_score"],
                 contributing_sensors=score["contributing_sensors"],
                 sensor_saliency=score.get("sensor_saliency", []),
+                counterfactuals=score.get("counterfactuals", []),
             ))
     for violation in final_state["permit_violations"]:
         zone = zone_by_key.get(violation["zone"])
@@ -271,10 +285,9 @@ def run_scenario(run_id: str, force: bool = False, facility_id: str | None = Non
             top_score = max(s["compound_risk_score"] for s in final_state["zone_risk_scores"])
             message = (f"{final_state['escalation_level'].upper()} in {zone.label}: compound risk "
                        f"{top_score:.2f}, {len(final_state['permit_violations'])} permit violation(s)")
-            db.add(Alert(facility_id=fid, zone_id=zone.id, run_id=run_row.id if run_row else None,
-                         external_run_id=run_id, level=final_state["escalation_level"], message=message))
-            fire_webhook({"level": final_state["escalation_level"], "zone": top_zone_key,
-                          "run_id": run_id, "message": message})
+            persist_alert(db, facility_id=fid, zone_id=zone.id, level=final_state["escalation_level"],
+                          message=message, run_id=run_row.id if run_row else None,
+                          external_run_id=run_id, reasoning=final_state["incident_report"])
     db.commit()
 
     return {

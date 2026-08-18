@@ -62,3 +62,45 @@ def explain_zone(model: CompoundRiskGNN, graph, zone: str, top_k: int = 3) -> di
         "permit_saliency": round(permit_grad, 4),
         "presence_saliency": round(presence_grad, 4),
     }
+
+
+# node types that make up each "evidence type" a counterfactual can remove -- worker
+# carries dwell-time detail beyond presence's plain flag, so it travels with presence
+_COUNTERFACTUAL_GROUPS = [
+    ("sensor_evidence", ("sensor_cluster", "sensor")),
+    ("active_permit", ("permit",)),
+    ("worker_presence", ("presence", "worker")),
+]
+
+
+def compute_counterfactuals(model: CompoundRiskGNN, graph, zone: str) -> list[dict]:
+    """'Would this zone still be flagged without X' for each evidence type, answered by
+    actually re-scoring rather than guessing from saliency. Since node features are
+    z-score normalized at inference time ((x - mean) / std -- see graph_builder / model
+    loading), zeroing a node type's tensor IS "this input at its training-set average":
+    no separate normal-condition baseline to fetch, no new stats to maintain.
+
+    Cheap: one forward pass per evidence type (no backward), on top of the one
+    explain_zone already does -- the model is tiny (67K params) and already loaded.
+    graph must already be normalized, same as explain_zone."""
+    zone_idx = ZONE_VOCAB.index(zone)
+
+    baseline_batch = next(iter(DataLoader([graph], batch_size=1)))
+    with torch.no_grad():
+        baseline_score = torch.sigmoid(model(baseline_batch))[zone_idx].item()
+
+    results = []
+    for label, node_types in _COUNTERFACTUAL_GROUPS:
+        batch = next(iter(DataLoader([graph], batch_size=1)))
+        for nt in node_types:
+            batch[nt].x = torch.zeros_like(batch[nt].x)
+        with torch.no_grad():
+            score = torch.sigmoid(model(batch))[zone_idx].item()
+        results.append({
+            "removed_factor": label,
+            "score_with": round(baseline_score, 4),
+            "score_without": round(score, 4),
+            "delta": round(baseline_score - score, 4),
+        })
+
+    return sorted(results, key=lambda r: -r["delta"])

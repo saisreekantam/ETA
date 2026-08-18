@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Film, Upload, Webcam, Play, Square, AlertCircle, Flame, VideoOff } from "lucide-react";
-import { API_BASE, apiFetch, getApiKey } from "./api";
+import { Film, Upload, Webcam, Play, Square, AlertCircle, Flame, ShieldCheck, ShieldX, VideoOff } from "lucide-react";
+import { API_BASE, apiFetch, getActivePermits, getApiKey } from "./api";
 
 const SOURCE_MODES = [
   { key: "sample", label: "Sample clip (demo)", icon: Film },
@@ -42,7 +42,7 @@ export default function LiveMonitoring({ zones }) {
   const [runIntrusion, setRunIntrusion] = useState(true);
   const [runFall, setRunFall] = useState(true);
   const [runFireSmoke, setRunFireSmoke] = useState(true);
-  const [hasPermit, setHasPermit] = useState(false);
+  const [activePermits, setActivePermits] = useState(null); // null = loading
   const [uploadedPath, setUploadedPath] = useState(null);
   const [session, setSession] = useState(null);
   const [events, setEvents] = useState([]);
@@ -51,6 +51,17 @@ export default function LiveMonitoring({ zones }) {
   const pollRef = useRef(null);
 
   useEffect(() => () => stopPolling(), []);
+
+  // Real permit status, not a self-reported toggle -- re-fetched whenever the covered
+  // zone changes, and used both for the on-screen indicator and as the has_active_permit
+  // param the session starts with (see server/permit_lookup.py).
+  useEffect(() => {
+    let cancelled = false;
+    setActivePermits(null);
+    getActivePermits(zone).then((p) => { if (!cancelled) setActivePermits(p); })
+      .catch(() => { if (!cancelled) setActivePermits([]); });
+    return () => { cancelled = true; };
+  }, [zone]);
 
   function stopPolling() {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -70,7 +81,8 @@ export default function LiveMonitoring({ zones }) {
     setError(null);
     const params = new URLSearchParams({
       zone, run_intrusion: String(runIntrusion), run_fall: String(runFall),
-      run_fire_smoke: String(runFireSmoke), has_active_permit: String(hasPermit),
+      run_fire_smoke: String(runFireSmoke),
+      has_active_permit: String(!!(activePermits && activePermits.length > 0)),
     });
     if (sourceMode === "live") {
       params.set("live", "true");
@@ -154,13 +166,24 @@ export default function LiveMonitoring({ zones }) {
           <select value={zone} onChange={(e) => setZone(e.target.value)} disabled={!!session}>
             {zones && Object.keys(zones).map((z) => <option key={z} value={z}>{z}</option>)}
           </select>
+          {/* Real, server-looked-up status -- not a self-reported toggle. The system
+              checks its own permit records the same way a CCTV-detected event will be
+              correlated against them (see server/permit_lookup.py). */}
+          <span className={activePermits && activePermits.length > 0 ? "permit-status active" : "permit-status none"}>
+            {activePermits === null ? (
+              "Checking permit status…"
+            ) : activePermits.length > 0 ? (
+              <><ShieldCheck size={13} /> {activePermits.length} active permit{activePermits.length > 1 ? "s" : ""} ({activePermits.map((p) => p.permit_type).join(", ")})</>
+            ) : (
+              <><ShieldX size={13} /> No active permit for this zone</>
+            )}
+          </span>
         </div>
 
         <div className="live-control-group checkboxes">
           <label><input type="checkbox" checked={runIntrusion} onChange={(e) => setRunIntrusion(e.target.checked)} disabled={!!session} /> Run zone-intrusion check</label>
           <label><input type="checkbox" checked={runFall} onChange={(e) => setRunFall(e.target.checked)} disabled={!!session} /> Run fall/man-down check</label>
           <label><input type="checkbox" checked={runFireSmoke} onChange={(e) => setRunFireSmoke(e.target.checked)} disabled={!!session} /> <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Flame size={12} /> Run fire/smoke check</span></label>
-          <label><input type="checkbox" checked={hasPermit} onChange={(e) => setHasPermit(e.target.checked)} disabled={!!session} /> Active permit covers this zone</label>
         </div>
 
         {!session ? (

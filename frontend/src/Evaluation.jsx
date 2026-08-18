@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { BarChart3, Crosshair, Gauge, MapPin, Timer } from "lucide-react";
-import { getBenchmarks } from "./api";
+import { BarChart3, Crosshair, Gauge, MapPin, Network, Timer } from "lucide-react";
+import { getBenchmarks, getGeneralizationBenchmarks } from "./api";
 
 /** GNN = chromatic (accent blue), baseline = achromatic gray: the chroma difference
  * survives every CVD type, and every bar is direct-labeled, so identity never rides on
@@ -59,6 +59,94 @@ function PairedBars({ rows, fmt = (v) => v.toFixed(2), max = 1 }) {
         );
       })}
     </svg>
+  );
+}
+
+const GEN_SERIES = [
+  { key: "gnn", label: "Compound-risk GNN", color: "var(--accent-cyan)" },
+  { key: "rf", label: "Pooled Random Forest (same features, no graph)", color: "var(--text-tertiary)" },
+];
+
+/** Same paired-bar rendering as PairedBars, but its own series/labels -- the competitor
+ * here is a pooled flat classifier given identical features, not the naive single-sensor
+ * threshold the rest of this page compares against, so it needs its own legend. */
+function GenBars({ rows }) {
+  const barH = 14, gap = 6, groupGap = 18, labelW = 118, valueW = 52;
+  const chartW = 460;
+  const plotW = chartW - labelW - valueW;
+  const groupH = barH * 2 + gap;
+  const height = rows.length * (groupH + groupGap) - groupGap + 4;
+
+  return (
+    <svg className="bench-chart" viewBox={`0 0 ${chartW} ${height}`} role="img">
+      {rows.map((row, gi) => {
+        const y0 = gi * (groupH + groupGap);
+        return (
+          <g key={row.label}>
+            <text x={labelW - 10} y={y0 + groupH / 2 + 4} textAnchor="end" className="bench-row-label">
+              {row.label}
+            </text>
+            {GEN_SERIES.map((s, si) => {
+              const v = row[s.key];
+              const w = Math.max(2, v * plotW);
+              const y = y0 + si * (barH + gap);
+              return (
+                <g key={s.key}>
+                  <title>{`${s.label} · ${row.label}: AUC ${v.toFixed(3)}`}</title>
+                  <rect x={labelW} y={y} width={w} height={barH} rx={4} fill={s.color} opacity={0.92} />
+                  <text x={labelW + w + 8} y={y + barH - 3} className="bench-value">{v.toFixed(2)}</text>
+                </g>
+              );
+            })}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function GeneralizationSection() {
+  const [data, setData] = useState(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    getGeneralizationBenchmarks().then(setData).catch(() => setFailed(true));
+  }, []);
+
+  if (failed || !data) return null; // optional section -- absence shouldn't break the page
+
+  const rows = Object.values(data.runs).map((r) => ({
+    label: r.held_out_zone,
+    gnn: r.gnn.auc,
+    rf: r.pooled_random_forest.auc,
+  }));
+  if (rows.length === 0) return null;
+
+  return (
+    <section className="bench-card">
+      <h3><Network size={16} style={{ verticalAlign: "-2px", marginRight: 6 }} />
+        Why the graph, not just a threshold
+      </h3>
+      <p className="devices-lede">
+        The table above shows the GNN beating a single-sensor threshold — but classical
+        methods (PCA, Random Forest) given the same features match or beat the GNN on
+        that same in-distribution benchmark. The graph's real advantage shows up here:
+        each zone below was held out of training entirely — zero examples, positive or
+        negative — and scored for the first time at test. AUC (ranking quality) is the
+        honest metric; a 0.5-threshold precision/recall is meaningless for a zone the
+        model has never been calibrated on.
+      </p>
+      <div className="bench-charts" style={{ gridTemplateColumns: "1fr" }}>
+        <GenBars rows={rows} />
+      </div>
+      <p className="bench-note">
+        The GNN's per-edge-type weights are shared across every zone, so the sensor+permit
+        fusion rule it learns on other zones transfers automatically. The pooled Random
+        Forest, given identical information, has no such constraint — its tree splits are
+        tied to the specific zones it trained on, and it scores worse than random on a zone
+        it's never seen (AUC below 0.5 on both held-out zones tested).
+      </p>
+    </section>
   );
 }
 
@@ -176,6 +264,8 @@ export default function Evaluation() {
         </table>
         <p className="bench-note">{lead.note}</p>
       </section>
+
+      <GeneralizationSection />
     </div>
   );
 }

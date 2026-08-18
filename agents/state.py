@@ -36,6 +36,11 @@ class ZoneRiskScore(TypedDict):
     # contributing_sensors but with the gradient magnitudes, normalized so the top
     # sensor is 1.0, for the frontend's explainability bar chart
     sensor_saliency: list[dict]
+    # [{"removed_factor": "active_permit", "score_with": 0.87, "score_without": 0.31,
+    # "delta": 0.56}, ...] -- "would this zone still be flagged without X", from actually
+    # re-scoring with that evidence type zeroed out (models/gnn/attribution.py), not
+    # inferred from the saliency gradient
+    counterfactuals: list[dict]
     contributing_faults: list[str] | None  # only populated on synthetic/eval runs
 
 
