@@ -33,7 +33,13 @@ export function setFacility(facility) {
  * don't take it ignore the extra param). Use this everywhere instead of raw fetch
  * (LiveMonitoring.jsx/Replay.jsx do their own polling fetches and also import this). */
 export async function apiFetch(path, options = {}) {
-  const headers = { ...(options.headers || {}), "X-API-Key": getApiKey() };
+  const headers = {
+    ...(options.headers || {}),
+    "X-API-Key": getApiKey(),
+    // No-op against a plain backend; skips ngrok's browser-warning interstitial when
+    // API_BASE is tunneled through ngrok for a live demo.
+    "ngrok-skip-browser-warning": "true",
+  };
   const facility = getFacility();
   if (facility?.id) {
     path += (path.includes("?") ? "&" : "?") + `facility_id=${encodeURIComponent(facility.id)}`;

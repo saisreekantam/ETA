@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertTriangle, Flame, Loader2, ShieldAlert, X } from "lucide-react";
+import { renderInline } from "./IncidentReport";
 
 const LEVEL_ICON = { emergency: Flame, alert: ShieldAlert, security: ShieldAlert, monitor: AlertTriangle };
 
@@ -68,7 +69,7 @@ export default function AlertBanner({ alerts, onAck }) {
                   {a.reasoning_status === "pending" ? (
                     <span className="alert-banner-generating"><Loader2 size={12} className="spin" /> Generating explanation…</span>
                   ) : a.reasoning_status === "ready" && a.reasoning ? (
-                    <span>{a.reasoning}</span>
+                    <span>{renderInline(a.reasoning, a.id)}</span>
                   ) : null}
                 </div>
               </div>

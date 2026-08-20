@@ -6,7 +6,9 @@
  */
 
 // Split a line into text/bold runs on **...** and render <strong> for the bold ones.
-function renderInline(text, keyBase) {
+// Exported for other surfaces (e.g. AlertBanner's LLM-generated reasoning) that show a
+// single markdown-lite string without the rest of the report's block structure.
+export function renderInline(text, keyBase) {
   const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {

@@ -11,8 +11,8 @@
   --text-secondary: #9a9a9a;
   --text-tertiary: #6a6a6a;
 
-  --accent-cyan: #5b8db8;
-  --accent-cyan-glow: rgba(91, 141, 184, 0.22);
+  --accent-cyan: #2f8f6a;
+  --accent-cyan-glow: rgba(47, 143, 106, 0.22);
   --accent-green: #57b894;
   --accent-green-glow: rgba(87, 184, 148, 0.22);
   --accent-amber: #d9a441;
@@ -66,8 +66,8 @@
   --text-secondary: #55606f;
   --text-tertiary: #8a94a3;
 
-  --accent-cyan: #2f6f9f;
-  --accent-cyan-glow: rgba(47, 111, 159, 0.18);
+  --accent-cyan: #1f6e50;
+  --accent-cyan-glow: rgba(31, 110, 80, 0.18);
   --accent-green: #2f9670;
   --accent-green-glow: rgba(47, 150, 112, 0.18);
   --accent-amber: #b7822a;
@@ -2087,7 +2087,7 @@ body::after {
 }
 
 .mode-btn.active {
-  background: linear-gradient(180deg, rgba(91, 141, 184, 0.22), rgba(91, 141, 184, 0.08));
+  background: linear-gradient(180deg, rgba(47, 143, 106, 0.22), rgba(47, 143, 106, 0.08));
   box-shadow: var(--glass-highlight), 0 0 14px var(--accent-cyan-glow);
 }
 
@@ -2154,7 +2154,7 @@ body::after {
    pin the label to the theme's primary ink and soften the glow */
 [data-theme="light"] .mode-btn.active {
   color: var(--text-primary);
-  background: linear-gradient(180deg, rgba(47, 111, 159, 0.16), rgba(47, 111, 159, 0.06));
+  background: linear-gradient(180deg, rgba(31, 110, 80, 0.16), rgba(31, 110, 80, 0.06));
   box-shadow: var(--glass-highlight), 0 0 10px var(--accent-cyan-glow);
 }
 

@@ -5,7 +5,7 @@ import {
   FileWarning, Quote, Eye, CheckCircle2, Activity, ChevronRight, RefreshCw, Info,
   Sun, Moon, HardDrive, BarChart3, Bell, LogOut, FileDown, Rss, Square, MessageSquare, Coffee,
 } from "lucide-react";
-import { API_BASE, ackAlert, alertsExportUrl, evidenceUrl, getAlerts, getBreakMode, getFacility, getZones, getScenarios, liveStreamUrl, runScenario, setApiKey, setBreakMode, setFacility } from "./api";
+import { API_BASE, ackAlert, alertsExportUrl, apiFetch, evidenceUrl, getAlerts, getBreakMode, getFacility, getZones, getScenarios, liveStreamUrl, runScenario, setApiKey, setBreakMode, setFacility } from "./api";
 import AlertBanner from "./AlertBanner";
 import ChatPanel from "./ChatPanel";
 import PlantMap from "./PlantMap";
@@ -319,9 +319,9 @@ export default function App() {
           </div>
           <button
             className="icon-btn"
-            onClick={() => { setApiKey(""); window.location.reload(); }}
+            onClick={() => { setApiKey(""); setFacility(null); window.location.reload(); }}
             aria-label="Sign out"
-            title="Sign out (clear API key)"
+            title="Sign out"
           >
             <LogOut size={15} />
           </button>
@@ -565,7 +565,7 @@ export default function App() {
                           {result.vision_detections.map((d, i) => (
                             <div key={i} className="vision-card">
                               {d.image_url && (
-                                <img src={`${API_BASE}${d.image_url}`} alt={d.frame_id} className="vision-image" />
+                                <AuthedImage path={d.image_url} alt={d.frame_id} className="vision-image" />
                               )}
                               <div className="vision-meta">
                                 <div><span className="meta-key">Zone</span> {d.zone}</div>
@@ -606,6 +606,33 @@ const LEGEND = [
   { label: "Alert", color: "#d9824a" },
   { label: "Critical", color: "#d96363" },
 ];
+
+// Plain <img src> can't carry the X-API-Key / ngrok-skip-browser-warning headers
+// apiFetch sends, so evidence photos loaded that way 404/hit ngrok's browser-warning
+// interstitial when API_BASE is a tunneled URL. Fetch as a blob instead.
+function AuthedImage({ path, alt, className }) {
+  const [src, setSrc] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let objectUrl = null;
+    apiFetch(path)
+      .then((res) => res.blob())
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [path]);
+
+  if (!src) return <div className={`${className} vision-image-loading`} />;
+  return <img src={src} alt={alt} className={className} />;
+}
 
 function PlantLegend() {
   return (
