@@ -277,17 +277,16 @@ export default function App() {
             <MessageSquare size={16} />
           </button>
           <div className="alert-bell-wrap">
-            {/* Deliberately calm -- no red badge/glow here. The AlertBanner is the one
-                thing that should grab attention for a new alert; the bell is a manual
-                reference point (full unacknowledged list, open on click) that shouldn't
-                also visually compete for attention the moment the banner already is. */}
             <button
-              className="icon-btn alert-bell"
+              className={alerts.length > 0 ? "icon-btn alert-bell has-alerts" : "icon-btn alert-bell"}
               onClick={() => setAlertsOpen((v) => !v)}
               aria-label={`Alert inbox, ${alerts.length} unacknowledged`}
               title="Alert inbox"
             >
               <Bell size={16} />
+              {alerts.length > 0 && (
+                <span className="alert-count">{alerts.length > 99 ? "99+" : alerts.length}</span>
+              )}
             </button>
             <AnimatePresence>
               {alertsOpen && (

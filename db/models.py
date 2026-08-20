@@ -302,6 +302,12 @@ class Alert(Base):
     external_run_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     level: Mapped[str] = mapped_column(String(20))  # alert | emergency | security
     message: Mapped[str] = mapped_column(Text)
+    # Identifies *what kind of ongoing hazard* this is (e.g. "vision:reactor_zone:fall_detected",
+    # "device:<id>") -- lets server/live_watch.py check "is there already an unacknowledged
+    # alert for this exact thing" instead of re-alerting on a fixed timer while it persists.
+    # NULL for alerts that don't need this (sensor-pipeline runs, security alerts) --
+    # those are already one-shot / not timer-driven.
+    source_key: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
     # Plain-language explanation of *why* this fired, from the local LLM. Populated
     # synchronously at creation for alerts that already ran the orchestrator (pipeline
     # runs, CCTV ppe/intrusion events -- see agents/vision_pipeline.py); populated

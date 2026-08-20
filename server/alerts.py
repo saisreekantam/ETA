@@ -146,7 +146,7 @@ def _generate_reasoning_async(alert_id: uuid.UUID, message: str, prompt: str | N
 def persist_alert(db: Session, *, facility_id: uuid.UUID, zone_id: uuid.UUID | None, level: str,
                   message: str, run_id: uuid.UUID | None = None, external_run_id: str | None = None,
                   reasoning: str | None = None, reasoning_prompt: str | None = None,
-                  source: str = "pipeline") -> Alert:
+                  source: str = "pipeline", source_key: str | None = None) -> Alert:
     """The one place an Alert row gets created -- unifies what used to be two divergent
     call sites (server/main.py's inline block, server/live_watch.py::raise_live_alert)
     with different run_id handling and webhook payload shapes.
@@ -157,10 +157,14 @@ def persist_alert(db: Session, *, facility_id: uuid.UUID, zone_id: uuid.UUID | N
     background call fills it in a few seconds later, so nothing (life-safety alerts,
     CCTV-correlated ones) is ever delayed by an LLM round-trip.
     reasoning_prompt: for the async case, an optional RAG-grounded prompt (see
-    agents/vision_pipeline.py::build_reasoning_prompt) instead of the generic fallback."""
+    agents/vision_pipeline.py::build_reasoning_prompt) instead of the generic fallback.
+    source_key: identifies *what ongoing hazard* this is (e.g. "vision:reactor_zone:fall_detected")
+    for callers that re-check the same condition repeatedly (CCTV, device watcher) -- see
+    has_open_alert. Leave None for one-shot alerts (sensor-pipeline runs, security)."""
     alert = Alert(facility_id=facility_id, zone_id=zone_id, run_id=run_id,
                   external_run_id=external_run_id, level=level, message=message,
-                  reasoning=reasoning, reasoning_status="ready" if reasoning else "pending")
+                  reasoning=reasoning, reasoning_status="ready" if reasoning else "pending",
+                  source_key=source_key)
     db.add(alert)
     db.commit()
     db.refresh(alert)
@@ -184,6 +188,19 @@ def persist_alert(db: Session, *, facility_id: uuid.UUID, zone_id: uuid.UUID | N
     if reasoning is None:
         _generate_reasoning_async(alert.id, message, prompt=reasoning_prompt)
     return alert
+
+
+def has_open_alert(db: Session, facility_id: uuid.UUID, source_key: str) -> bool:
+    """True if this exact ongoing hazard (see persist_alert's source_key) already has an
+    unacknowledged alert sitting in the inbox. Callers that re-check a persisting
+    condition on a timer (CCTV detections, device anomaly polling) use this instead of
+    re-raising every cooldown window regardless of whether anyone's addressed the first
+    one -- an officer who hasn't acknowledged it yet doesn't need five more of the same
+    thing; an officer who HAS acknowledged it (or a genuinely new occurrence after the
+    hazard cleared and came back) should still get a fresh alert."""
+    return db.query(Alert.id).filter_by(
+        facility_id=facility_id, source_key=source_key, acknowledged_at=None,
+    ).first() is not None
 
 
 @router.get("/alerts")

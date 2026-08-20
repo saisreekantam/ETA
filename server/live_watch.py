@@ -16,9 +16,12 @@ accountable for seeing. Three inputs feed the same sink:
 
 All three raise persisted Alert rows (the appbar bell + acknowledgment trail) via the
 same server/alerts.py::persist_alert, and fire the outbound webhook, exactly like
-pipeline escalations. A per-key cooldown stops a 30fps hazard or a stuck sensor from
-flooding the inbox: the first detection warns immediately, repeats within the window are
-suppressed.
+pipeline escalations. Two layers stop a 30fps hazard or a stuck sensor from flooding the
+inbox: a short per-key cooldown (cheap, avoids hammering the DB every frame) and --  the
+real dedup -- server/alerts.py::has_open_alert, which skips raising while an
+unacknowledged alert for that exact hazard is still open. The first detection warns
+immediately; it stays the only one until acknowledged (or the hazard clears and recurs
+later), not until a fixed timer expires.
 
 Device anomaly rule (deliberately simple and explainable): a reading is anomalous when
 it deviates more than DEVICE_SIGMA from the device's own trailing mean (minimum history
@@ -35,7 +38,7 @@ import uuid
 
 from db.models import Device, SensorReading, Zone
 from db.session import SessionLocal
-from server.alerts import persist_alert
+from server.alerts import has_open_alert, persist_alert
 
 # event type -> alert level; fall/fire are life-safety, straight to emergency. Only used
 # for fall/fire now -- ppe_violation/unauthorized_entry get their level from
@@ -87,9 +90,14 @@ def reset_vision_cooldowns(zone_key: str) -> None:
 def raise_live_alert(facility_id: uuid.UUID | str | None, zone_key: str, level: str,
                      message: str, cooldown_key: str) -> bool:
     """Persist an Alert (reasoning generated asynchronously, see
-    server/alerts.py::persist_alert) deduplicated by cooldown_key. Returns True if an
-    alert was actually raised. Never raises -- a failed warning write must not take down
-    the inference/ingest path that called it."""
+    server/alerts.py::persist_alert), gated two ways: a short cooldown (cheap, avoids a
+    DB round-trip on every frame of a 30fps hazard) and -- the real dedup -- skipping
+    entirely while an unacknowledged alert for this exact hazard (cooldown_key, stored as
+    source_key) is still sitting in the inbox. A hazard that's still being detected 10
+    minutes from now doesn't need 5 more copies of the same alert; it needs the first one
+    acknowledged. Once acknowledged (or the hazard clears and recurs later), a fresh alert
+    can fire again. Returns True if an alert was actually raised. Never raises -- a failed
+    warning write must not take down the inference/ingest path that called it."""
     if not _cooled_down(cooldown_key):
         return False
     db = SessionLocal()
@@ -100,8 +108,10 @@ def raise_live_alert(facility_id: uuid.UUID | str | None, zone_key: str, level: 
         zone = zone_q.first()
         if zone is None:
             return False
+        if has_open_alert(db, zone.facility_id, cooldown_key):
+            return False
         persist_alert(db, facility_id=zone.facility_id, zone_id=zone.id, level=level,
-                      message=message, source="live")
+                      message=message, source="live", source_key=cooldown_key)
         return True
     except Exception:
         db.rollback()
@@ -158,6 +168,8 @@ def _raise_vision_correlated_alert(facility_id: str | None, zone_key: str, event
         zone = zone_q.first()
         if zone is None:
             return False
+        if has_open_alert(db, zone.facility_id, cooldown_key):
+            return False
         state = run_vision_correlation(db, zone.facility_id, zone_key, event_type, count=count)
         if state["escalation_level"] == "none":
             return False
@@ -165,7 +177,7 @@ def _raise_vision_correlated_alert(facility_id: str | None, zone_key: str, event
         prompt = build_reasoning_prompt(top_violation, state["permits"])
         persist_alert(db, facility_id=zone.facility_id, zone_id=zone.id,
                       level=state["escalation_level"], message=top_violation["reason"],
-                      reasoning_prompt=prompt, source="live-cctv")
+                      reasoning_prompt=prompt, source="live-cctv", source_key=cooldown_key)
         return True
     except Exception:
         db.rollback()
