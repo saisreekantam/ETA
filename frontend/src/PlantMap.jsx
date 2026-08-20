@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { motion } from "motion/react";
+import { useState, useEffect } from "react";
+import { motion, animate, useMotionValue, useTransform } from "motion/react";
 
 // Continuous risk gradient (green -> amber -> orange -> red) instead of hard bands, so
 // two zones at 0.55 and 0.68 read as different, not identical "medium" boxes. The
@@ -110,6 +110,103 @@ const COUNTERFACTUAL_LABEL = {
   active_permit: "without the permit",
   worker_presence: "without worker presence",
 };
+
+// Animates the zone box through the actual risk gradient (green -> watch -> alert ->
+// critical) instead of a raw two-colour blend. The GNN's own output tends to jump almost
+// straight from ~0 to ~0.9+ in one step (a confident, well-separated decision boundary),
+// so animating `fill` directly between the old and new colour would linearly blend RGB
+// channels end-to-end and never visibly pass through the yellow/orange stops. Animating
+// the underlying score instead, and re-deriving colour from it every frame via
+// riskColor(), makes the box actually sweep through watch/alert on its way to critical.
+function ZoneBox({ zoneId, z, label, score, baseline, isActive, permit, workers, saliency, onMouseEnter, onMouseLeave }) {
+  const scoreMV = useMotionValue(score ?? 0);
+  useEffect(() => {
+    const controls = animate(scoreMV, score ?? 0, { duration: 0.9, ease: "easeOut" });
+    return () => controls.stop();
+  }, [score, scoreMV]);
+  const fill = useTransform(scoreMV, (v) => (score == null ? "url(#zone-idle-fill)" : riskColor(v)));
+  const glow = useTransform(scoreMV, (v) => glowFilter(isActive ? v : null));
+  const isCritical = isActive && score >= 0.9;
+
+  return (
+    <motion.g
+      initial={false}
+      style={{ filter: glow }}
+      onMouseEnter={saliency.length ? onMouseEnter : undefined}
+      onMouseLeave={saliency.length ? onMouseLeave : undefined}
+    >
+      <motion.rect
+        x={z.x} y={z.y} width={z.w} height={z.h}
+        rx={12}
+        initial={false}
+        style={{ fill, transformOrigin: `${z.x + z.w / 2}px ${z.y + z.h / 2}px` }}
+        animate={{
+          stroke: isActive ? "#ffffff" : "var(--border-strong)",
+          strokeWidth: isActive ? 2.5 : 1.5,
+          opacity: score == null ? 0.5 : 0.92,
+          scale: isActive ? 1.015 : 1,
+        }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+      />
+      <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={12}
+            fill="url(#zone-glass)" pointerEvents="none" />
+      {permit && score != null && (
+        <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={12}
+              fill="url(#permit-hatch)" pointerEvents="none" />
+      )}
+      {isCritical && (
+        <motion.rect
+          x={z.x} y={z.y} width={z.w} height={z.h}
+          rx={12}
+          fill="none"
+          stroke="#fb5858"
+          strokeWidth={2}
+          animate={{ opacity: [0.9, 0, 0.9], scale: [1, 1.08, 1] }}
+          style={{ transformOrigin: `${z.x + z.w / 2}px ${z.y + z.h / 2}px` }}
+          transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+        />
+      )}
+      {permit && score != null && (
+        <g>
+          <rect x={z.x + 6} y={z.y + 6} rx={4} width={PERMIT_SHORT[permit.permit_type].length * 5.4 + 12} height={14}
+                fill="rgba(8,11,17,0.55)" />
+          <text x={z.x + 12} y={z.y + 16.5} className="zone-permit-tag">
+            {PERMIT_SHORT[permit.permit_type]}
+          </text>
+        </g>
+      )}
+      <text x={z.x + z.w / 2} y={z.y + z.h / 2 - (score != null ? 8 : 0)} textAnchor="middle" className="zone-label">
+        {label}
+      </text>
+      {score != null && (
+        <>
+          <text x={z.x + z.w / 2} y={z.y + z.h / 2 + 12} textAnchor="middle" className="zone-score">
+            {score.toFixed(2)}
+          </text>
+          {baseline != null && (
+            <text x={z.x + z.w / 2} y={z.y + z.h / 2 + 25} textAnchor="middle" className="zone-score-sub">
+              base {baseline.toFixed(2)}
+            </text>
+          )}
+        </>
+      )}
+      {workers > 0 && score != null && (
+        <g>
+          {Array.from({ length: Math.min(workers, 5) }).map((_, i) => (
+            <circle key={i} cx={z.x + z.w - 12 - i * 11} cy={z.y + z.h - 11} r={4}
+                    className="zone-worker-dot" />
+          ))}
+          {workers > 5 && (
+            <text x={z.x + z.w - 12 - 5 * 11 - 4} y={z.y + z.h - 8} textAnchor="end" className="zone-worker-count">
+              +{workers - 5}
+            </text>
+          )}
+          <title>{`${workers} worker(s) present`}</title>
+        </g>
+      )}
+    </motion.g>
+  );
+}
 
 // Hover tooltip: mini bar chart of the gradient-saliency behind a zone's score ("which
 // sensors drove this number") PLUS the counterfactual re-scores ("would this zone still
@@ -272,96 +369,22 @@ export default function PlantMap({ zones, riskByZone, baselineByZone, activeZone
       </g>
 
       {Object.keys(zones).filter((zoneId) => boxFor(zoneId)).map((zoneId) => {
-        const z = boxFor(zoneId);
-        const label = zones[zoneId].label;
-        const score = riskByZone[zoneId];
-        const baseline = baselineByZone[zoneId];
-        const isActive = zoneId === activeZone;
-        const isCritical = isActive && score >= 0.9;
-        const permit = activePermitByZone[zoneId];
-        const workers = workersByZone[zoneId] || 0;
-
         const saliency = (sensorSaliencyByZone && sensorSaliencyByZone[zoneId]) || [];
-
         return (
-          <motion.g
+          <ZoneBox
             key={zoneId}
-            initial={false}
-            style={{ filter: glowFilter(isActive ? score : null) }}
-            onMouseEnter={saliency.length ? () => setHoveredZone(zoneId) : undefined}
-            onMouseLeave={saliency.length ? () => setHoveredZone(null) : undefined}
-          >
-            <motion.rect
-              x={z.x} y={z.y} width={z.w} height={z.h}
-              rx={12}
-              initial={false}
-              animate={{
-                fill: riskColor(score),
-                stroke: isActive ? "#ffffff" : "var(--border-strong)",
-                strokeWidth: isActive ? 2.5 : 1.5,
-                opacity: score == null ? 0.5 : 0.92,
-                scale: isActive ? 1.015 : 1,
-              }}
-              style={{ transformOrigin: `${z.x + z.w / 2}px ${z.y + z.h / 2}px` }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-            />
-            <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={12}
-                  fill="url(#zone-glass)" pointerEvents="none" />
-            {permit && score != null && (
-              <rect x={z.x} y={z.y} width={z.w} height={z.h} rx={12}
-                    fill="url(#permit-hatch)" pointerEvents="none" />
-            )}
-            {isCritical && (
-              <motion.rect
-                x={z.x} y={z.y} width={z.w} height={z.h}
-                rx={12}
-                fill="none"
-                stroke="#fb5858"
-                strokeWidth={2}
-                animate={{ opacity: [0.9, 0, 0.9], scale: [1, 1.08, 1] }}
-                style={{ transformOrigin: `${z.x + z.w / 2}px ${z.y + z.h / 2}px` }}
-                transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-              />
-            )}
-            {permit && score != null && (
-              <g>
-                <rect x={z.x + 6} y={z.y + 6} rx={4} width={PERMIT_SHORT[permit.permit_type].length * 5.4 + 12} height={14}
-                      fill="rgba(8,11,17,0.55)" />
-                <text x={z.x + 12} y={z.y + 16.5} className="zone-permit-tag">
-                  {PERMIT_SHORT[permit.permit_type]}
-                </text>
-              </g>
-            )}
-            <text x={z.x + z.w / 2} y={z.y + z.h / 2 - (score != null ? 8 : 0)} textAnchor="middle" className="zone-label">
-              {label}
-            </text>
-            {score != null && (
-              <>
-                <text x={z.x + z.w / 2} y={z.y + z.h / 2 + 12} textAnchor="middle" className="zone-score">
-                  {score.toFixed(2)}
-                </text>
-                {baseline != null && (
-                  <text x={z.x + z.w / 2} y={z.y + z.h / 2 + 25} textAnchor="middle" className="zone-score-sub">
-                    base {baseline.toFixed(2)}
-                  </text>
-                )}
-              </>
-            )}
-            {workers > 0 && score != null && (
-              <g>
-                {Array.from({ length: Math.min(workers, 5) }).map((_, i) => (
-                  <circle key={i} cx={z.x + z.w - 12 - i * 11} cy={z.y + z.h - 11} r={4}
-                          className="zone-worker-dot" />
-                ))}
-                {workers > 5 && (
-                  <text x={z.x + z.w - 12 - 5 * 11 - 4} y={z.y + z.h - 8} textAnchor="end" className="zone-worker-count">
-                    +{workers - 5}
-                  </text>
-                )}
-                <title>{`${workers} worker(s) present`}</title>
-              </g>
-            )}
-          </motion.g>
+            zoneId={zoneId}
+            z={boxFor(zoneId)}
+            label={zones[zoneId].label}
+            score={riskByZone[zoneId]}
+            baseline={baselineByZone[zoneId]}
+            isActive={zoneId === activeZone}
+            permit={activePermitByZone[zoneId]}
+            workers={workersByZone[zoneId] || 0}
+            saliency={saliency}
+            onMouseEnter={() => setHoveredZone(zoneId)}
+            onMouseLeave={() => setHoveredZone(null)}
+          />
         );
       })}
 
