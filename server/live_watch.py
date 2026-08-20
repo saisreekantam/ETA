@@ -70,6 +70,20 @@ def _cooled_down(key: str) -> bool:
         return True
 
 
+def reset_vision_cooldowns(zone_key: str) -> None:
+    """Clear this zone's vision-alert cooldowns so a freshly-started session isn't
+    silently gated by a previous, unrelated session's alert history (e.g. testing Live
+    camera and then Sample clip back to back on the same zone within ALERT_COOLDOWN_S --
+    the second session's detections are real but would otherwise raise nothing). A new
+    session starting is a deliberate re-arm; it should get its own first-hit warning.
+    Cooldowns WITHIN a session's own run are unaffected -- this only fires once, at
+    session start, not per-frame."""
+    prefix = f"vision:{zone_key}:"
+    with _cooldown_lock:
+        for key in [k for k in _last_raised if k.startswith(prefix)]:
+            del _last_raised[key]
+
+
 def raise_live_alert(facility_id: uuid.UUID | str | None, zone_key: str, level: str,
                      message: str, cooldown_key: str) -> bool:
     """Persist an Alert (reasoning generated asynchronously, see
@@ -116,7 +130,7 @@ def raise_security_alert(facility_id: uuid.UUID | str, message: str, cooldown_ke
 
 
 def _raise_vision_correlated_alert(facility_id: str | None, zone_key: str, event_type: str,
-                                   cooldown_key: str) -> bool:
+                                   cooldown_key: str, count: int = 1) -> bool:
     """ppe_violation/unauthorized_entry: run the real permit-correlation pass
     (agents/vision_pipeline.py) instead of a bare template alert -- fast (no LLM in this
     path, see that module's docstring), so the alert lands within ~1-2s of the camera
@@ -144,7 +158,7 @@ def _raise_vision_correlated_alert(facility_id: str | None, zone_key: str, event
         zone = zone_q.first()
         if zone is None:
             return False
-        state = run_vision_correlation(db, zone.facility_id, zone_key, event_type)
+        state = run_vision_correlation(db, zone.facility_id, zone_key, event_type, count=count)
         if state["escalation_level"] == "none":
             return False
         top_violation = top_violation_of(state["permit_violations"])
@@ -167,7 +181,7 @@ def make_vision_alert_hook(facility_id: str | None):
         if event.event in _ORCHESTRATOR_ROUTED_EVENTS:
             _raise_vision_correlated_alert(
                 facility_id, session.zone, event.event,
-                cooldown_key=f"vision:{session.zone}:{event.event}",
+                cooldown_key=f"vision:{session.zone}:{event.event}", count=event.count,
             )
             return
         level = VISION_EVENT_LEVELS.get(event.event)

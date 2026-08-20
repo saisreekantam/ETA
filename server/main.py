@@ -43,7 +43,7 @@ from server.facilities import router as facilities_router  # noqa: E402
 from server.devices import router as devices_router  # noqa: E402
 from server.devices import start_simulator  # noqa: E402
 from server.live import router as live_router  # noqa: E402
-from server.live_watch import make_vision_alert_hook, start_device_watcher  # noqa: E402
+from server.live_watch import make_vision_alert_hook, reset_vision_cooldowns, start_device_watcher  # noqa: E402
 from server.permit_lookup import get_active_permits_for_zone  # noqa: E402
 from vision.live_inference import create_session, get_session, stop_session  # noqa: E402
 
@@ -372,6 +372,10 @@ def start_vision_session(
         source = video_path
         mode = "video"
 
+    # A fresh session is a deliberate re-arm -- don't let a previous, unrelated session's
+    # alert history (e.g. Live camera tested moments ago) silently swallow this one's
+    # detections for the same zone (see server/live_watch.py::reset_vision_cooldowns).
+    reset_vision_cooldowns(zone)
     session = create_session(
         source=source, zone=zone, run_intrusion=run_intrusion, run_fall=run_fall,
         run_fire_smoke=run_fire_smoke, has_active_permit=has_active_permit, mode=mode, loop_video=not live,

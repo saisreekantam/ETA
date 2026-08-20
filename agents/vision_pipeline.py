@@ -59,8 +59,13 @@ def _permit_to_state_dict(permit: Permit) -> PermitRecord:
     )
 
 
-def _translate_event(event_type: str, zone_key: str) -> VisionDetection:
-    detections = _EVENT_TO_DETECTIONS[event_type]
+def _translate_event(event_type: str, zone_key: str, count: int = 1) -> VisionDetection:
+    # count repeats the single-instance label rather than adding a "how many" field to
+    # VisionDetection -- permit_correlation_node already derives its reported count via
+    # det["detections"].count(label), so this keeps that counting logic correct for both
+    # the live-CCTV path (real count) and the baked-demo-frame path (always 1) without
+    # having to touch it.
+    detections = _EVENT_TO_DETECTIONS[event_type] * max(count, 1)
     return VisionDetection(
         frame_id="live",
         zone=zone_key,
@@ -82,7 +87,7 @@ def build_reasoning_prompt(top_violation: PermitViolation, permits: list[PermitR
 
 
 def run_vision_correlation(db: Session, facility_id: uuid.UUID | str, zone_key: str,
-                            event_type: str) -> PipelineState:
+                            event_type: str, count: int = 1) -> PipelineState:
     """event_type must be one of _EVENT_TO_DETECTIONS' keys. Returns the resulting state
     with escalation_level/permit_violations/audit_log populated -- incident_report is
     deliberately left None here (see module docstring on why the LLM call is async)."""
@@ -94,7 +99,7 @@ def run_vision_correlation(db: Session, facility_id: uuid.UUID | str, zone_key: 
         "sensor_window": {},
         "permits": [_permit_to_state_dict(p) for p in active_permits],
         "worker_presence": [],
-        "vision_detections": [_translate_event(event_type, zone_key)],
+        "vision_detections": [_translate_event(event_type, zone_key, count=count)],
         "zone_risk_scores": [],
         "flow_attention": [],
         "permit_violations": [],

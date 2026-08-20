@@ -66,6 +66,10 @@ class VisionEvent:
     detector: str
     event: str
     detail: str
+    # How many instances this event represents (e.g. workers without helmets, people in
+    # an unauthorized zone) -- carried structurally so downstream alert correlation
+    # (agents/vision_pipeline.py) reports the real count instead of always "1".
+    count: int = 1
 
 
 @dataclass
@@ -109,8 +113,8 @@ class VisionSession:
         with self._lock:
             return self._latest_jpeg
 
-    def _log(self, detector: str, event: str, detail: str):
-        ev = VisionEvent(timestamp=time.time(), detector=detector, event=event, detail=detail)
+    def _log(self, detector: str, event: str, detail: str, count: int = 1):
+        ev = VisionEvent(timestamp=time.time(), detector=detector, event=event, detail=detail, count=count)
         self.events.insert(0, ev)
         self.events = self.events[:50]
         if self.on_event is not None:
@@ -144,14 +148,16 @@ class VisionSession:
                 annotated = ppe_results.plot()
                 _, n_bare, _ = analyze_ppe_result(ppe_results)
                 if n_bare > 0:
-                    self._log("ppe", "ppe_violation", f"{n_bare} worker(s) detected without helmets in {self.zone}")
+                    self._log("ppe", "ppe_violation", f"{n_bare} worker(s) detected without helmets in {self.zone}",
+                              count=n_bare)
 
                 if self.run_intrusion and frame_idx % INTRUSION_EVERY_N_FRAMES == 0:
                     person_results = _person_model.predict(frame, conf=0.4, verbose=False)[0]
                     n_person = sum(1 for b in person_results.boxes if int(b.cls.item()) == COCO_PERSON_CLASS_ID)
                     if n_person > 0 and not self.has_active_permit:
                         self._log("zone_intrusion", "unauthorized_entry",
-                                  f"{n_person} person(s) detected in {self.zone} with no active permit")
+                                  f"{n_person} person(s) detected in {self.zone} with no active permit",
+                                  count=n_person)
 
                 if self.run_fall and frame_idx % FALL_EVERY_N_FRAMES == 0:
                     fall_results = _fall_model.predict(frame, conf=0.4, verbose=False)[0]
